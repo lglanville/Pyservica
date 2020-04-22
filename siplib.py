@@ -26,7 +26,8 @@ class Sip(zipfile.ZipFile):
                     prot = file.filename
                     self.sipref = prot.split('.')[0]
                 if file.filename.endswith('metadata.xml'):
-                    self.xip = etree.parse(BytesIO(self.read(file.filename))).getroot()
+                    self.xip = etree.parse(
+                        BytesIO(self.read(file.filename))).getroot()
             self.protocol = etree.parse(BytesIO(self.read(prot)))
             self.content = os.path.join(self.sipref, 'content')
         else:
@@ -51,20 +52,20 @@ class Sip(zipfile.ZipFile):
 
     def get_infobjs(self):
         infobjs = {}
-        for e in self.xip.findall('InformationObject'):
-            title = e.find('Title').text
-            ref = e.find('Ref').text
+        for e in self.xip.findall('InformationObject', namespaces=self.xip.nsmap):
+            title = e.find('Title', namespaces=self.xip.nsmap).text
+            ref = e.find('Ref', namespaces=self.xip.nsmap).text
             infobjs[ref] = title
         return infobjs
 
     def get_checksums(self):
         sums = {}
-        for elem in self.xip.findall('Bitstream'):
-            name = elem.find('Filename').text
+        for elem in self.xip.findall('Bitstream', namespaces=self.xip.nsmap):
+            name = elem.find('Filename', namespaces=self.xip.nsmap).text
             sums[name] = {}
-            for fixity in elem.findall('Fixities/Fixity'):
-                alg = fixity.find('FixityAlgorithmRef').text
-                hash = fixity.find('FixityValue').text
+            for fixity in elem.findall('Fixities/Fixity', namespaces=self.xip.nsmap):
+                alg = fixity.find('FixityAlgorithmRef', namespaces=self.xip.nsmap).text
+                hash = fixity.find('FixityValue', namespaces=self.xip.nsmap).text
                 sums[name][alg] = hash
         return sums
 
@@ -77,12 +78,12 @@ class Sip(zipfile.ZipFile):
         """
         ref = str(uuid4())
         logger.info(f'Adding StructuralObject {title} {ref}')
-        sobj = etree.SubElement(self.xip, 'StructuralObject')
-        etree.SubElement(sobj, 'Ref').text = ref
-        etree.SubElement(sobj, 'Title').text = title
-        etree.SubElement(sobj, 'SecurityTag').text = security_tag
+        sobj = etree.SubElement(self.xip, 'StructuralObject', nsmap=self.xip.nsmap)
+        etree.SubElement(sobj, 'Ref', nsmap=self.xip.nsmap).text = ref
+        etree.SubElement(sobj, 'Title', nsmap=self.xip.nsmap).text = title
+        etree.SubElement(sobj, 'SecurityTag', nsmap=self.xip.nsmap).text = security_tag
         if parent_ref is not None:
-            etree.SubElement(sobj, 'Parent').text = parent_ref
+            etree.SubElement(sobj, 'Parent', nsmap=self.xip.nsmap).text = parent_ref
         return ref
 
     def add_infobj(self, title, folder_ref, security_tag='open'):
@@ -96,11 +97,11 @@ class Sip(zipfile.ZipFile):
         """
         ref = str(uuid4())
         logger.info(f'Adding InformationObject {title} {ref}')
-        sobj = etree.SubElement(self.xip, 'InformationObject')
-        etree.SubElement(sobj, 'Ref').text = ref
-        etree.SubElement(sobj, 'Title').text = title
-        etree.SubElement(sobj, 'SecurityTag').text = security_tag
-        etree.SubElement(sobj, 'Parent').text = folder_ref
+        sobj = etree.SubElement(self.xip, 'InformationObject', nsmap=self.xip.nsmap)
+        etree.SubElement(sobj, 'Ref', nsmap=self.xip.nsmap).text = ref
+        etree.SubElement(sobj, 'Title', nsmap=self.xip.nsmap).text = title
+        etree.SubElement(sobj, 'SecurityTag', nsmap=self.xip.nsmap).text = security_tag
+        etree.SubElement(sobj, 'Parent', nsmap=self.xip.nsmap).text = folder_ref
         return ref
 
     def add_representation(self, name, info_ref, c_objects, type='Preservation'):
@@ -117,14 +118,14 @@ class Sip(zipfile.ZipFile):
         if type not in ('Access', 'Preservation'):
             raise ValueError(
                 'Representation type must be Access or Preservation')
-        rep = etree.SubElement(self.xip, 'Representation')
+        rep = etree.SubElement(self.xip, 'Representation', nsmap=self.xip.nsmap)
         logger.info(f'Adding Representation {name} to {info_ref}')
-        etree.SubElement(rep, 'InformationObject').text = info_ref
-        etree.SubElement(rep, 'Name').text = name
-        etree.SubElement(rep, 'Type').text = type
-        con = etree.SubElement(rep, 'ContentObjects')
+        etree.SubElement(rep, 'InformationObject', nsmap=self.xip.nsmap).text = info_ref
+        etree.SubElement(rep, 'Name', nsmap=self.xip.nsmap).text = name
+        etree.SubElement(rep, 'Type', nsmap=self.xip.nsmap).text = type
+        con = etree.SubElement(rep, 'ContentObjects', nsmap=self.xip.nsmap)
         for c_object in c_objects:
-            etree.SubElement(con, 'ContentObject').text = c_object
+            etree.SubElement(con, 'ContentObject', nsmap=self.xip.nsmap).text = c_object
 
     def add_contobj(self, fname, info_ref, security_tag='open'):
         """
@@ -133,14 +134,14 @@ class Sip(zipfile.ZipFile):
         """
         ref = str(uuid4())
         logger.info(f'Adding ContentObject {fname} {ref} to {info_ref}')
-        content = etree.SubElement(self.xip, 'ContentObject')
-        etree.SubElement(content, 'Ref').text = ref
-        etree.SubElement(content, 'Title').text = fname
-        etree.SubElement(content, 'SecurityTag').text = security_tag
-        etree.SubElement(content, 'Parent').text = info_ref
+        content = etree.SubElement(self.xip, 'ContentObject', nsmap=self.xip.nsmap)
+        etree.SubElement(content, 'Ref', nsmap=self.xip.nsmap).text = ref
+        etree.SubElement(content, 'Title', nsmap=self.xip.nsmap).text = fname
+        etree.SubElement(content, 'SecurityTag', nsmap=self.xip.nsmap).text = security_tag
+        etree.SubElement(content, 'Parent', nsmap=self.xip.nsmap).text = info_ref
         return ref
 
-    def add_generation(self, contobj_ref, label, bitstreams):
+    def add_generation(self, contobj_ref, label, bitstreams, orig='true', active='true'):
         """
         Content objects contain generations, as a sequence of dated views of
         the content in different formats. When content is preserved, a new
@@ -149,17 +150,17 @@ class Sip(zipfile.ZipFile):
         (e.g. for retrieving content to render).
         """
         gen = etree.SubElement(
-            self.xip, 'Generation', original="true", active="true")
+            self.xip, 'Generation', original=orig, active=active, nsmap=self.xip.nsmap)
         logger.info(f'Adding Generation {label} to {contobj_ref}')
-        etree.SubElement(gen, 'ContentObject').text = contobj_ref
-        etree.SubElement(gen, 'Label').text = label
-        etree.SubElement(gen, 'EffectiveDate').text = datetime.now().isoformat()
-        b = etree.SubElement(gen, 'Bitstreams')
+        etree.SubElement(gen, 'ContentObject', nsmap=self.xip.nsmap).text = contobj_ref
+        etree.SubElement(gen, 'Label', nsmap=self.xip.nsmap).text = label
+        etree.SubElement(gen, 'EffectiveDate', nsmap=self.xip.nsmap).text = datetime.now().isoformat()
+        b = etree.SubElement(gen, 'Bitstreams', nsmap=self.xip.nsmap)
         for bitstream in bitstreams:
             fpath = pathlib.Path(bitstream)
-            etree.SubElement(b, 'Bitstream').text = fpath.as_posix()
-        etree.SubElement(gen, 'Formats')
-        etree.SubElement(gen, 'Properties')
+            etree.SubElement(b, 'Bitstream', nsmap=self.xip.nsmap).text = fpath.as_posix()
+        etree.SubElement(gen, 'Formats', nsmap=self.xip.nsmap)
+        etree.SubElement(gen, 'Properties', nsmap=self.xip.nsmap)
 
     def add_bitstream(self, fpath, checksums, write=True):
         """
@@ -178,21 +179,21 @@ class Sip(zipfile.ZipFile):
         self.filecount += 1
         size = fpath.stat().st_size
         self.filesize += size
-        bstream = etree.SubElement(self.xip, 'Bitstream')
+        bstream = etree.SubElement(self.xip, 'Bitstream', nsmap=self.xip.nsmap)
         path, name = os.path.split(fpath)
         posix_path = fpath.parent.as_posix()
         if posix_path == '.':
             posix_path = ''
-        etree.SubElement(bstream, 'Filename').text = name
-        etree.SubElement(bstream, 'FileSize').text = str(size)
-        etree.SubElement(bstream, 'PhysicalLocation').text = posix_path
-        fixities = etree.SubElement(bstream, 'Fixities')
+        etree.SubElement(bstream, 'Filename', nsmap=self.xip.nsmap).text = name
+        etree.SubElement(bstream, 'FileSize', nsmap=self.xip.nsmap).text = str(size)
+        etree.SubElement(bstream, 'PhysicalLocation', nsmap=self.xip.nsmap).text = posix_path
+        fixities = etree.SubElement(bstream, 'Fixities', nsmap=self.xip.nsmap)
         for alg, hash in checksums.items():
             if alg not in ['MD5', 'SHA1', 'SHA256', 'SHA512']:
                 raise ValueError('Unsupported algorithm:', alg)
-            fixity = etree.SubElement(fixities, 'Fixity')
-            etree.SubElement(fixity, 'FixityAlgorithmRef').text = alg
-            etree.SubElement(fixity, 'FixityValue').text = hash
+            fixity = etree.SubElement(fixities, 'Fixity', nsmap=self.xip.nsmap)
+            etree.SubElement(fixity, 'FixityAlgorithmRef', nsmap=self.xip.nsmap).text = alg
+            etree.SubElement(fixity, 'FixityValue', nsmap=self.xip.nsmap).text = hash
 
     def add_tree(self, parent_ref, fpath, security_tag='open', checksum=None):
         """
@@ -247,10 +248,10 @@ class Sip(zipfile.ZipFile):
         InformationObjects or ContentObjects.
         """
         logger.info(f'Adding Identifier {type} {value} to {targetref}')
-        ident = etree.SubElement(self.xip, 'Identifier')
-        etree.SubElement(ident, 'Type').text = type
-        etree.SubElement(ident, 'Value').text = value
-        etree.SubElement(ident, 'Entity').text = targetref
+        ident = etree.SubElement(self.xip, 'Identifier', nsmap=self.xip.nsmap)
+        etree.SubElement(ident, 'Type', nsmap=self.xip.nsmap).text = type
+        etree.SubElement(ident, 'Value', nsmap=self.xip.nsmap).text = value
+        etree.SubElement(ident, 'Entity', nsmap=self.xip.nsmap).text = targetref
 
     def add_metadata(self, targetref, fragment):
         """
@@ -261,10 +262,10 @@ class Sip(zipfile.ZipFile):
         ref = str(uuid4())
         nspace = fragment.tag.split('}')[0].strip('{')
         logger.info(f'Adding Metadata {nspace} to {targetref}')
-        metadata = etree.SubElement(self.xip, 'Metadata', schemaUri=nspace)
-        etree.SubElement(metadata, 'Ref').text = ref
-        etree.SubElement(metadata, 'Entity').text = targetref
-        content = etree.SubElement(metadata, 'Content')
+        metadata = etree.SubElement(self.xip, 'Metadata', schemaUri=nspace, nsmap=self.xip.nsmap)
+        etree.SubElement(metadata, 'Ref', nsmap=self.xip.nsmap).text = ref
+        etree.SubElement(metadata, 'Entity', nsmap=self.xip.nsmap).text = targetref
+        content = etree.SubElement(metadata, 'Content', nsmap=self.xip.nsmap)
         content.append(fragment)
         return ref
 
