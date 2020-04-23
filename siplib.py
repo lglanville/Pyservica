@@ -202,7 +202,7 @@ class Sip(zipfile.ZipFile):
         relationship in the hierarchy.
         """
         fpath = pathlib.Path(fpath)
-        i = self.add_infobj(parent_ref, fpath.stem, security_tag=security_tag)
+        i = self.add_infobj(fpath.stem, parent_ref, security_tag=security_tag)
         c = self.add_contobj(fpath.name, i, security_tag=security_tag)
         self.add_representation('Preservation-1', i, [c])
         self.add_generation(c, '', [fpath])
@@ -216,8 +216,8 @@ class Sip(zipfile.ZipFile):
             nsmap={None: "http://www.tessella.com/xipcreateprotocol/v1"})
         logger.info(f'Writing protocol')
         etree.SubElement(prot, 'dateCreated').text = datetime.now().isoformat()
-        etree.SubElement(prot, 'size').text = str(self.filecount)
-        etree.SubElement(prot, 'files').text = str(self.filesize)
+        etree.SubElement(prot, 'size').text = str(self.filesize)
+        etree.SubElement(prot, 'files').text = str(self.filecount)
         etree.SubElement(prot, 'submissionName').text = name
         etree.SubElement(prot, 'catalogueName').text = name
         etree.SubElement(prot, 'localAIP').text = self.sipref
