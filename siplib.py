@@ -14,7 +14,7 @@ FORMAT = '%(asctime)-15s [%(levelname)s] %(message)s'
 logging.basicConfig(format=FORMAT)
 logger = logging.getLogger('siplog')
 logger.setLevel(logging.INFO)
-
+HASH_BLOCK_SIZE = 512 * 1024
 
 class Sip(zipfile.ZipFile):
     def __init__(self, fpath):
@@ -43,29 +43,29 @@ class Sip(zipfile.ZipFile):
     def get_structs(self):
         structs = {}
         for e in self.xip.findall('StructuralObject', namespaces=self.xip.nsmap):
-            title = e.find('Title', namespaces=self.xip.nsmap).text
-            ref = e.find('Ref', namespaces=self.xip.nsmap).text
+            title = e.findtext('Title', namespaces=self.xip.nsmap)
+            ref = e.findtext('Ref', namespaces=self.xip.nsmap)
             structs[title] = ref
         return structs
 
     def get_infobjs(self):
         infobjs = {}
         for e in self.xip.findall('InformationObject', namespaces=self.xip.nsmap):
-            title = e.find('Title', namespaces=self.xip.nsmap).text
-            ref = e.find('Ref', namespaces=self.xip.nsmap).text
+            title = e.findtext('Title', namespaces=self.xip.nsmap)
+            ref = e.findtext('Ref', namespaces=self.xip.nsmap)
             infobjs[ref] = title
         return infobjs
 
     def get_checksums(self):
         sums = {}
         for elem in self.xip.findall('Bitstream', namespaces=self.xip.nsmap):
-            name = elem.find('Filename', namespaces=self.xip.nsmap).text
+            name = elem.findtext('Filename', namespaces=self.xip.nsmap)
             sums[name] = {}
             for fixity in elem.findall('Fixities/Fixity', namespaces=self.xip.nsmap):
-                alg = fixity.find(
-                    'FixityAlgorithmRef', namespaces=self.xip.nsmap).text
-                hash = fixity.find(
-                    'FixityValue', namespaces=self.xip.nsmap).text
+                alg = fixity.findtext(
+                    'FixityAlgorithmRef', namespaces=self.xip.nsmap)
+                hash = fixity.findtext(
+                    'FixityValue', namespaces=self.xip.nsmap)
                 sums[name][alg] = hash
         return sums
 
@@ -238,6 +238,8 @@ class Sip(zipfile.ZipFile):
         b = self.add_xipelement(gen, 'Bitstreams')
         for bitstream in bitstreams:
             fpath = pathlib.Path(bitstream)
+            if fpath.is_absolute():
+                raise ValueError('Bitstream paths must be relative:', fpath)
             self.add_xipelement(
                 b, 'Bitstream').text = fpath.as_posix()
         self.add_xipelement(gen, 'Formats')
@@ -290,14 +292,26 @@ class Sip(zipfile.ZipFile):
         self.add_representation('Preservation-1', i, [c])
         self.add_generation(c, '', [fpath])
         if checksum is None:
-            checksum = sha256sum(fpath)
+            checksum = hash_file(fpath, ['SHA256', 'SHA512'])
         self.add_bitstream(fpath, checksum)
 
+    def sortkey(self, elem):
+        return elem.findtext('Name', namespaces=elem.nsmap)
+
     def sort_xip(self):
+        """
+        Sorts XIP xml by entity for readability and correct
+        processing by Preservica.
+        """
         data = []
-        data.extend(self.xip.findall('StructuralObject', namespaces=self.xip.nsmap))
-        data.extend(self.xip.findall('InformationObject', namespaces=self.xip.nsmap))
-        data.extend(self.xip.findall('Representation', namespaces=self.xip.nsmap))
+        data.extend(
+            self.xip.findall('StructuralObject', namespaces=self.xip.nsmap))
+        data.extend(
+            self.xip.findall('InformationObject', namespaces=self.xip.nsmap))
+        reps = sorted(
+            self.xip.findall('Representation', namespaces=self.xip.nsmap),
+            key=self.sortkey, reverse=True)
+        data.extend(reps)
         data.extend(self.xip.findall('ContentObject', namespaces=self.xip.nsmap))
         data.extend(self.xip.findall('Generation', namespaces=self.xip.nsmap))
         data.extend(self.xip.findall('Bitstream', namespaces=self.xip.nsmap))
@@ -306,6 +320,9 @@ class Sip(zipfile.ZipFile):
         self.xip[:] = data
 
     def write_protocol(self, parent_ref, name):
+        """
+        Writes a protocol file - unsure whether this is even necessary anymore.
+        """
         self.get_info()
         prot = etree.Element(
             'protocol',
@@ -335,6 +352,9 @@ class Sip(zipfile.ZipFile):
                 xml_declaration=True, standalone=True))
 
     def serialise(self, parent_ref, name):
+        """
+        Does all the stuff you need to do at the end
+        """
         self.write_xip()
         self.write_protocol(parent_ref, name)
         self.close()
@@ -383,15 +403,34 @@ class Sip(zipfile.ZipFile):
         etree.SubElement(ex_xip, 'CoverageTo').text = latest
 
 
-def sha256sum(filename):
-    hash = hashlib.sha256()
-    with open(filename, "rb") as f:
-        for chunk in iter(lambda: f.read(128 * hash.block_size), b""):
-            hash.update(chunk)
-    return {'SHA256': hash.hexdigest()}
+def get_hashers(algorithms):
+    hashers = {}
+    for alg in algorithms:
+        hashers[alg] = hashlib.new(alg)
+    return hashers
+
+
+def hash_file(fpath, algorithms, block_size=128):
+    """
+    returns a dict of hashes for the Sip.add_bitstream method.
+    Supported algs are MD5, SHA1, SHA256, SHA512.
+    To do: restrict to supported algorithms.
+    """
+    hashers = get_hashers(algorithms)
+    with open(fpath, "rb") as f:
+        while True:
+            block = f.read(HASH_BLOCK_SIZE)
+            if not block:
+                break
+            for i in hashers.values():
+                i.update(block)
+    return({alg: hasher.hexdigest() for alg, hasher in hashers.items()})
 
 
 def main(basedir, outdir, parent=None, security='open'):
+    """
+    Very simple method for building a V6 SIP with only single manifestations.
+    """
     os.chdir(basedir)
     sip = Sip(os.path.join(outdir, os.path.split(basedir)[1]+'.zip'))
     for root, dirs, files in os.walk(os.getcwd()):
