@@ -15,9 +15,15 @@ logging.basicConfig(format=FORMAT)
 logger = logging.getLogger('siplog')
 logger.setLevel(logging.INFO)
 HASH_BLOCK_SIZE = 512 * 1024
+SUPPORTED_ALGS = ['MD5', 'SHA1', 'SHA256', 'SHA512']
+
 
 class Sip(zipfile.ZipFile):
-    def __init__(self, fpath):
+    def __init__(self, fpath, parent, name=None):
+        """Class representing a Preservica V6 Submission Information Package
+        (SIP). Initialises a new, empty SIP at fpath, or if fpath exists,
+        loads the SIP for modification or analysis.
+        """
         if os.path.exists(fpath):
             logger.info(f'Opening existing SIP at {fpath}')
             super(Sip, self).__init__(fpath, 'a')
@@ -28,7 +34,6 @@ class Sip(zipfile.ZipFile):
                 if file.filename.endswith('metadata.xml'):
                     self.xip = etree.parse(
                         BytesIO(self.read(file.filename))).getroot()
-            self.protocol = etree.parse(BytesIO(self.read(prot)))
             self.content = os.path.join(self.sipref, 'content')
         else:
             logger.info(f'Creating new SIP at {fpath}')
@@ -39,6 +44,11 @@ class Sip(zipfile.ZipFile):
                 'XIP',
                 nsmap={None: "http://preservica.com/XIP/v6.0"})
             self.content = os.path.join(self.sipref, 'content')
+            self.parent = parent
+            if name is None:
+                self.name = pathlib.Path(fpath).stem
+            else:
+                self.name = name
 
     def get_structs(self):
         structs = {}
@@ -57,6 +67,7 @@ class Sip(zipfile.ZipFile):
         return infobjs
 
     def get_checksums(self):
+        """Returns a dict of file names with checksum algorithms and values."""
         sums = {}
         for elem in self.xip.findall('Bitstream', namespaces=self.xip.nsmap):
             name = elem.findtext('Filename', namespaces=self.xip.nsmap)
@@ -70,6 +81,7 @@ class Sip(zipfile.ZipFile):
         return sums
 
     def get_info(self):
+        """Set filecount and filesize attributes for the protocol file."""
         self.filecount = 0
         self.filesize = 0
         dirs = []
@@ -129,6 +141,7 @@ class Sip(zipfile.ZipFile):
             return f"Bitstream {name}"
 
     def get_top(self):
+        """Get the elements representing the top level object(s) in the SIP."""
         top = []
         refs = [elem.findtext('Ref', namespaces=self.xip.nsmap) for elem in self.xip]
         for elem in self.xip:
@@ -141,14 +154,14 @@ class Sip(zipfile.ZipFile):
             print(self.get_repr(elem))
 
     def add_xipelement(self, root, tag, **kwargs):
+        """Adds a subelement within the XIP namespace."""
         elem = etree.SubElement(
             root, etree.QName("{http://preservica.com/XIP/v6.0}"+tag), **kwargs)
         return elem
 
     def add_structobj(self, title, parent_ref=None, security_tag='open'):
-        """
-        Structural objects make up the hierarchy within your archive. They can
-        contain other structural objects, building up a tree structure, and
+        """Structural objects make up the hierarchy within your archive. They
+        can contain other structural objects, building up a tree structure, and
         also information objects. Parent is the uuid of the destination folder
         in Preservica.
         """
@@ -165,8 +178,7 @@ class Sip(zipfile.ZipFile):
         return ref
 
     def add_infobj(self, title, folder_ref, security_tag='open'):
-        """
-        A logically atomic piece of information, for example a picture or an
+        """A logically atomic piece of information, for example a picture or an
         email. Assets are the entities which you will generally interact with,
         for example by rendering or downloading them. An asset can’t contain
         other assets although it has substructure (see below), it is
@@ -184,8 +196,7 @@ class Sip(zipfile.ZipFile):
         return ref
 
     def add_representation(self, name, info_ref, c_objects, type='Preservation'):
-        """
-        A way of viewing the information within an asset. The most common
+        """A way of viewing the information within an asset. The most common
         example of different representations would be a preservation copy and
         an access copy, for example a video in its initial format for
         preservation purposes, and a downscaled web-ready MP4 for access
@@ -207,8 +218,7 @@ class Sip(zipfile.ZipFile):
             self.add_xipelement(con, 'ContentObject').text = c_object
 
     def add_contobj(self, fname, info_ref, security_tag='open'):
-        """
-        A logically atomic piece of content, for example an attachment or an
+        """A logically atomic piece of content, for example an attachment or an
         email.
         """
         ref = str(uuid4())
@@ -221,8 +231,7 @@ class Sip(zipfile.ZipFile):
         return ref
 
     def add_generation(self, contobj_ref, label, bitstreams, orig='true', active='true'):
-        """
-        Content objects contain generations, as a sequence of dated views of
+        """Content objects contain generations, as a sequence of dated views of
         the content in different formats. When content is preserved, a new
         generation will be created, with the content in a less at-risk format.
         Only the most recent generation of content will be used by default
@@ -246,8 +255,7 @@ class Sip(zipfile.ZipFile):
         self.add_xipelement(gen, 'Properties')
 
     def add_bitstream(self, fpath, checksums, write=True):
-        """
-        The physical content, as stored on a storage adapter. In almost all
+        """The physical content, as stored on a storage adapter. In almost all
         cases, a generation of a CO will have only one bitstream; exceptions
         would include multi-part container files, or data formats where the
         data header and content are in separate physical files (which is rare).
@@ -271,7 +279,7 @@ class Sip(zipfile.ZipFile):
             bstream, 'PhysicalLocation').text = posix_path
         fixities = self.add_xipelement(bstream, 'Fixities')
         for alg, hash in checksums.items():
-            if alg not in ['MD5', 'SHA1', 'SHA256', 'SHA512']:
+            if alg not in SUPPORTED_ALGS:
                 raise ValueError('Unsupported algorithm:', alg)
             fixity = self.add_xipelement(fixities, 'Fixity', nsmap=self.xip.nsmap)
             self.add_xipelement(
@@ -281,8 +289,7 @@ class Sip(zipfile.ZipFile):
                 fixity, 'FixityValue', nsmap=self.xip.nsmap).text = hash
 
     def add_tree(self, parent_ref, fpath, security_tag='open', checksum=None):
-        """
-        Simple method for adding an InformationObject > ContentObject >
+        """Simple method for adding an InformationObject > ContentObject >
         Representation > Generation > Bitstream hierarchy where there's a 1:1
         relationship in the hierarchy.
         """
@@ -299,8 +306,7 @@ class Sip(zipfile.ZipFile):
         return elem.findtext('Name', namespaces=elem.nsmap)
 
     def sort_xip(self):
-        """
-        Sorts XIP xml by entity for readability and correct
+        """Sorts XIP xml by entity for readability and correct
         processing by Preservica.
         """
         data = []
@@ -319,7 +325,7 @@ class Sip(zipfile.ZipFile):
         data.extend(the_rest)
         self.xip[:] = data
 
-    def write_protocol(self, parent_ref, name):
+    def write_protocol(self):
         """
         Writes a protocol file - unsure whether this is even necessary anymore.
         """
@@ -331,10 +337,10 @@ class Sip(zipfile.ZipFile):
         etree.SubElement(prot, 'dateCreated').text = datetime.now().isoformat()
         etree.SubElement(prot, 'size').text = str(self.filesize)
         etree.SubElement(prot, 'files').text = str(self.filecount)
-        etree.SubElement(prot, 'submissionName').text = name
-        etree.SubElement(prot, 'catalogueName').text = name
+        etree.SubElement(prot, 'submissionName').text = self.name
+        etree.SubElement(prot, 'catalogueName').text = self.name
         etree.SubElement(prot, 'localAIP').text = self.sipref
-        etree.SubElement(prot, 'globalAIP').text = parent_ref
+        etree.SubElement(prot, 'globalAIP').text = self.parent
         etree.SubElement(prot, 'createdBy').text = getpass.getuser()
         tree = etree.ElementTree(prot)
         self.writestr(self.sipref+'.protocol', etree.tostring(
@@ -351,13 +357,12 @@ class Sip(zipfile.ZipFile):
                 tree, pretty_print=True, encoding="UTF-8",
                 xml_declaration=True, standalone=True))
 
-    def serialise(self, parent_ref, name):
+    def serialise(self):
         """
-        Does all the stuff you need to do at the end
+        Does all the stuff you need to do at the end.
         """
         self.write_xip()
-        self.write_protocol(parent_ref, name)
-        self.close()
+        self.write_protocol()
 
     def add_identifier(self, targetref, value, type='code'):
         """
@@ -403,7 +408,7 @@ class Sip(zipfile.ZipFile):
         etree.SubElement(ex_xip, 'CoverageTo').text = latest
 
 
-def get_hashers(algorithms):
+def _get_hashers(algorithms):
     hashers = {}
     for alg in algorithms:
         hashers[alg] = hashlib.new(alg)
@@ -416,7 +421,7 @@ def hash_file(fpath, algorithms, block_size=128):
     Supported algs are MD5, SHA1, SHA256, SHA512.
     To do: restrict to supported algorithms.
     """
-    hashers = get_hashers(algorithms)
+    hashers = _get_hashers(algorithms)
     with open(fpath, "rb") as f:
         while True:
             block = f.read(HASH_BLOCK_SIZE)
@@ -427,44 +432,54 @@ def hash_file(fpath, algorithms, block_size=128):
     return({alg: hasher.hexdigest() for alg, hasher in hashers.items()})
 
 
-def main(basedir, outdir, parent=None, security='open'):
+def main(basedir, outdir, parent=None, security='open', identifier=None):
     """
     Very simple method for building a V6 SIP with only single manifestations.
     """
     os.chdir(basedir)
-    sip = Sip(os.path.join(outdir, os.path.split(basedir)[1]+'.zip'))
-    for root, dirs, files in os.walk(os.getcwd()):
-        parent = sip.add_structobj(
-            os.path.split(root)[1], parent_ref=parent, security_tag=security)
-        for file in files:
-            fpath = pathlib.Path(root) / file
-            relpath = fpath.relative_to(fpath.cwd())
-            sip.add_tree(parent, relpath, security_tag=security)
-    sip.write_xip()
-    sip.write_protocol(parent, os.path.split(sys.argv[1])[1])
-    sip.close()
+    basedir = pathlib.Path(basedir)
+    sip_path = pathlib.Path(outdir) / (basedir.name+'.zip')
+    with Sip(sip_path, parent) as sip:
+        for root, dirs, files in os.walk(os.getcwd()):
+            parent = sip.add_structobj(
+                os.path.split(root)[1],
+                parent_ref=parent, security_tag=security)
+            for file in files:
+                fpath = pathlib.Path(root) / file
+                if file == 'metadata.xml':
+                    fragment = etree.parse(str(pathlib.Path(root, file)))
+                    sip.add_metadata(parent, fragment.getroot())
+                else:
+                    relpath = fpath.relative_to(fpath.cwd())
+                    sip.add_tree(parent, relpath, security_tag=security)
+        if identifier is not None:
+            top_refs = [elem.findtext('Ref', namespaces=elem.nsmap) for elem in sip.get_top()]
+            for ref in top_refs:
+                sip.add_identifier(ref, identifier)
+        sip.serialise()
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Build a simple SIP from a directory')
     parser.add_argument(
-        'dir', metavar='i', type=str, help='base directory for a SIP')
+        'indir', metavar='i', type=str, help='base directory for a SIP')
     parser.add_argument(
-        '--out', metavar='o', type=str, help='base directory for a SIP')
+        'out', metavar='o', type=str, help='directory for output of SIP')
     parser.add_argument(
-        '--target', type=str,
-        help='target folder for sip')
+        '--parent', type=str,
+        help='parent folder ref in Preservica for SIP')
     parser.add_argument(
         '--security', type=str,
         help='security tag')
     parser.add_argument(
-        '--tree', action='store_true',
-        help='print ZIP hierarchy to console')
+        '--identifier', type=str,
+        help='identifier to be appended to top folder')
 
     args = parser.parse_args()
-    if args.tree:
-        sip = Sip(args.dir)
-        sip.print_tree()
-    else:
-        main(args.dir, args.out, parent=args.target)
+    main(
+        args.indir,
+        args.out,
+        parent=args.parent,
+        security=args.security,
+        identifier=args.identifier)
