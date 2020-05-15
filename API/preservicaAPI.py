@@ -242,31 +242,30 @@ class preservica_session(requests.Session):
             print(e)
         self.headers['Content-Type'] = 'application/xml'
 
-    def s3upload(self, fpath, bucket):
+    def s3upload(self, fpath, bucket, destination):
         """uploadspackage to S3 biucket with required metadata. Needs the
         AWS CLI installed and configured. We might do this via Boto in the
         future"""
-        p = pathlib.Path(fpath)
-        size = round(p.stat().st_size/1024)
-        args = [
-            'aws', 's3', 'cp', fpath, f's3://{bucket}', '--metadata',
-            f'key={p.name},name={p.name+".zip"},size={size}']
-        r = subprocess.run(args, check=True, stdout=subprocess.PIPE)
+        from s3upload import S3upload
+        S3upload(fpath, bucket, destination)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Simple tasks using the Preservica API')
     parser.add_argument(
+        '--profile', default='DEFAULT',
+        help='saves or amends a credentials file')
+    parser.add_argument(
         '--config', nargs=4,
         metavar=('host', 'tenant', 'username', 'password'),
         help='saves or amends a credentials file')
     parser.add_argument(
         '--upload', nargs=2, metavar=('filepath', 'parentref'),
-        help='uploads a package to parent ref')
+        help='uploads a package to parent ref via the API')
     args = parser.parse_args()
     if args.config is not None:
-        write_config(*args.config)
-    sesh = get_session()
+        write_config(*args.config, profile=args.profile)
+    sesh = get_session(profile=args.profile)
     if args.upload is not None:
         sesh.upload(*args.upload)
