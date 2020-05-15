@@ -6,6 +6,9 @@ import pathlib
 
 
 def main(bagdir, outdir, parent_ref):
+    """traverses a bagit package with an object directory, converting it to a
+    V6 SIP using existing checksums
+    """
     bag = bagit.Bag(bagdir)
     os.chdir(bag.path)
     bag_path = pathlib.Path(bagdir)
@@ -24,7 +27,7 @@ def main(bagdir, outdir, parent_ref):
             hash = [hash for file, hash in bag.payload_entries().items() if pathlib.Path(file) == fpath]
             if len(hash) == 1:
                 norm_hash = {alg.upper(): val for alg, val in hash[0].items()}
-                sip.add_tree(parent_ref, fpath, checksum=norm_hash)
+                sip.add_asset_tree(parent_ref, fpath, checksum=norm_hash)
             else:
                 raise ValueError('Too many hashes')
     sip.serialise()

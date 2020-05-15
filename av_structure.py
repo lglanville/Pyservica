@@ -6,6 +6,7 @@ import re
 import logging
 import pathlib
 from lxml import etree
+from API.s3upload import S3upload
 FORMAT = '%(asctime)-15s [%(levelname)s] %(message)s'
 logging.basicConfig(format=FORMAT)
 logger = logging.getLogger()
@@ -53,7 +54,8 @@ def video(metadata, bagdirs, outdir, parent, security='open', write=True):
     meta = etree.parse(metadata).getroot()
     title = meta.find('mods:titleInfo/mods:title', namespaces=meta.nsmap).text
     identifier = meta.find('mods:identifier[@type="UMA"]', namespaces=meta.nsmap).text
-    sip = siplib.Sip(os.path.join(outdir, identifier+'.zip'), parent)
+    sipfile = os.path.join(outdir, identifier+'.zip')
+    sip = siplib.Sip(sipfile, parent)
     base = sip.add_structobj(title, parent, security_tag=args.security)
     sip.add_identifier(base, identifier)
     sip.add_metadata(base, meta)
@@ -86,6 +88,7 @@ def video(metadata, bagdirs, outdir, parent, security='open', write=True):
                 norm_hash = {alg.upper(): val for alg, val in hash.items()}
                 sip.add_bitstream(file, norm_hash, write=write)
     sip.close(args.target, identifier)
+    return sipfile
 
 
 if __name__ == '__main__':
@@ -107,8 +110,13 @@ if __name__ == '__main__':
     parser.add_argument(
         '--dummy', action='store_false',
         help="Don't write bitstreams, just package structure (for evaluation)")
+    parser.add_argument(
+        '--s3',
+        help="path to s3 bucket for upload")
 
     args = parser.parse_args()
-    video(
+    sipfile = video(
         args.metadata, args.dirs, args.out, args.target,
         security=args.security, write=args.dummy)
+    if args.s3 is not None:
+        S3upload(sipfile, args.s3)

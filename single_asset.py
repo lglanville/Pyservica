@@ -10,25 +10,15 @@ def build_asset(sip_path, indir, target, ident):
     """Builds a SIP with a single asset linked to multiple TIF content objects
     and a compiled PDF representation.
     """
-    sip = siplib.Sip(sip_path)
-    c_objects = []
+    sip = siplib.Sip(sip_path, target)
     images = []
     os.chdir(indir)
     asset = sip.add_infobj(ident, target)
     sip.add_identifier(asset, ident)
-    for file in os.listdir(indir):
-        if file.endswith('.tif'):
-            c = sip.add_contobj(file, asset)
-            c_objects.append(c)
-            sip.add_generation(c, 'original', [file])
-            hash = siplib.hash_file(file, ['SHA256', 'SHA512'])
-            sip.add_bitstream(file, hash)
-            i = Image.open(file)
-            ratio = min(5096/i.width, 5096/i.height)
-            i = i.resize((round(i.width*ratio), round(i.height*ratio)))
-            images.append(i)
-    sip.add_representation("Preservation-1", asset, c_objects)
+    files = [file for file in os.listdir() if file.endswith('.tif')]
+    sip.add_manifestation(asset, files, 'Preservation')
     pdf_fname = ident+'.pdf'
+    images = [Image.open(file) for file in files]
     images[0].save(pdf_fname, resolution=200, quality=60, save_all=True, append_images=images[1:])
     c = sip.add_contobj(pdf_fname, asset)
     sip.add_representation('Access PDF', asset, [c], type='Access')
@@ -36,7 +26,7 @@ def build_asset(sip_path, indir, target, ident):
     checksums = siplib.hash_file(pdf_fname, ['SHA256', 'SHA512'])
     sip.add_bitstream(pdf_fname, checksums)
     os.remove(pdf_fname)
-    sip.serialise(target, ident)
+    sip.serialise()
 
 
 def iter_folders(parent_dir, outdir, target):
@@ -52,7 +42,8 @@ def iter_folders(parent_dir, outdir, target):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        description='Build a series of SIPs from a directory')
+        description='Simple script for creating multipart assets with PDF'
+        'access copies from the UMA digital asset storage')
     parser.add_argument(
         'dir', metavar='i', type=str, help='base directory with subfolders')
     parser.add_argument(

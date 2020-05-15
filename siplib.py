@@ -149,6 +149,11 @@ class Sip(zipfile.ZipFile):
                 top.append(elem)
         return top
 
+    def get_object(self, ref):
+        for elem in self.xip.findall('.//Ref', self.xip.nsmap):
+            if elem.text == ref:
+                return elem.getparent()
+
     def list_elements(self):
         for elem in self.xip:
             print(self.get_repr(elem))
@@ -288,7 +293,7 @@ class Sip(zipfile.ZipFile):
             self.add_xipelement(
                 fixity, 'FixityValue', nsmap=self.xip.nsmap).text = hash
 
-    def add_tree(self, parent_ref, fpath, security_tag='open', checksum=None):
+    def add_asset_tree(self, parent_ref, fpath, security_tag='open', checksum=None):
         """Simple method for adding an InformationObject > ContentObject >
         Representation > Generation > Bitstream hierarchy where there's a 1:1
         relationship in the hierarchy.
@@ -301,6 +306,27 @@ class Sip(zipfile.ZipFile):
         if checksum is None:
             checksum = hash_file(fpath, ['SHA256', 'SHA512'])
         self.add_bitstream(fpath, checksum)
+
+    def add_manifestation(self, info_ref, filepaths, type, security_tag='open', algorithms=['SHA256', 'SHA512'], rep_name=None, gen_label=''):
+        """Add a manifestation to an existing information object. Filepaths
+        is a list of files to support multipart assets. Paths must be relative.
+        """
+        CO_refs = []
+        for file in filepaths:
+            file = pathlib.Path(file)
+            CO_ref = self.add_contobj(file.name, info_ref, security_tag=security_tag)
+            CO_refs.append(CO_ref)
+            self.add_generation(CO_ref, gen_label, [file])
+            hash = hash_file(file, algorithms)
+            self.add_bitstream(file, hash)
+        if rep_name is None:  # add a name based on number of existing reps
+            num_reps = 1
+            for e in self.xip.findall('.//InformationObject', self.xip.nsmap):
+                if e.text == info_ref and e.getparent().tag == 'Representation':
+                    if e.getparent().findtext('Type', self.xip.nsmap) == type:
+                        num_reps += 1
+            rep_name = type+'-'+str(num_reps)
+        self.add_representation(rep_name, info_ref, CO_refs)
 
     def sortkey(self, elem):
         return elem.findtext('Name', namespaces=elem.nsmap)
@@ -422,6 +448,7 @@ def hash_file(fpath, algorithms, block_size=128):
     To do: restrict to supported algorithms.
     """
     hashers = _get_hashers(algorithms)
+    logger.info(f'Calculating checksums for {fpath}')
     with open(fpath, "rb") as f:
         while True:
             block = f.read(HASH_BLOCK_SIZE)
@@ -451,7 +478,7 @@ def main(basedir, outdir, parent=None, security='open', identifier=None):
                     sip.add_metadata(parent, fragment.getroot())
                 else:
                     relpath = fpath.relative_to(fpath.cwd())
-                    sip.add_tree(parent, relpath, security_tag=security)
+                    sip.add_asset_tree(parent, relpath, security_tag=security)
         if identifier is not None:
             top_refs = [elem.findtext('Ref', namespaces=elem.nsmap) for elem in sip.get_top()]
             for ref in top_refs:
@@ -470,7 +497,7 @@ if __name__ == '__main__':
         '--parent', type=str,
         help='parent folder ref in Preservica for SIP')
     parser.add_argument(
-        '--security', type=str,
+        '--security', type=str, default='open',
         help='security tag')
     parser.add_argument(
         '--identifier', type=str,
