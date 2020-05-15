@@ -87,7 +87,7 @@ def video(metadata, bagdirs, outdir, parent, security='open', write=True):
                     sip.add_generation(c_object, '', [fpath])
                 norm_hash = {alg.upper(): val for alg, val in hash.items()}
                 sip.add_bitstream(file, norm_hash, write=write)
-    sip.close(args.target, identifier)
+    sip.close()
     return sipfile
 
 
