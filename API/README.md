@@ -1,9 +1,6 @@
 # Preservica API library
 
-Python library that wraps requests.session for working with the Preservica API.
-
-## Installation
-Eventually I will package this properly. For now, clone and use within the repo directory.
+Python module that wraps requests.session for working with the Preservica API.
 
 ## Usage
 The core library including the preservica_session class is in the file
@@ -15,7 +12,12 @@ On the command line:
 ```
 python preservicaAPI.py  --config [host] [tenant] [username] [password]
 ```
-The preservicaAPI.py file also contains a simple option for package upload.
+The preservicaAPI.py file also contains a simple option for package upload via
+the API. Note this method is only suitable for packages <= 10gb.
 ```
 python preservicaAPI.py  --upload [package file] [folder ref]
 ```
+The s3upload.py file is a simple script/function for uploading a package to
+a configured AWS S3 source bucket. Packages are uploaded with required S3 tags
+for Preservica to detect and process a valid package. This script requires
+AWS credentials to be configured and the boto3 library installed.
