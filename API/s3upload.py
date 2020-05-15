@@ -6,7 +6,11 @@ import boto3
 from boto3.s3.transfer import TransferConfig
 
 
-def S3upload(file, destination, bucketpath):
+def S3upload(file, bucketpath, destination=None):
+    """Function for S3 upload with minimum Preservica required metadata.
+    Destination is not required for XIP based packages as the destination is
+    set within the XIP metadata
+    """
     fpath = pathlib.Path(file)
     s3 = boto3.resource('s3')
     bucket = s3.Bucket(bucketpath)
@@ -15,10 +19,11 @@ def S3upload(file, destination, bucketpath):
 
     key = str(uuid4())
     metadata = {"Metadata": {
-        "structuralobjectreference": destination,
         "key": key,
         "name": fpath.name,
         "size": str(round(fpath.stat().st_size/1024))}}
+    if bucket is not None:
+        metadata["metadata"]["structuralobjectreference"] = destination
     with fpath.open('rb') as data:
         bucket.upload_fileobj(
             data, key,  ExtraArgs=metadata, Config=config,
