@@ -1,5 +1,4 @@
 from lxml import etree
-import sys
 from uuid import uuid4
 from datetime import datetime
 import os
@@ -421,6 +420,7 @@ class Sip(zipfile.ZipFile):
     def add_extendedxip(self, targetref, earliest, latest, surrogate=True):
         nspace = "http://preservica.com/ExtendedXIP/v6.0"
         ref = str(uuid4())
+        logger.info(f'Adding Metadata {nspace} to {targetref}')
         metadata = etree.SubElement(self.xip, 'Metadata', schemaUri=nspace)
         etree.SubElement(metadata, 'Ref').text = ref
         etree.SubElement(metadata, 'Entity').text = targetref

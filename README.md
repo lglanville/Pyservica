@@ -10,11 +10,14 @@ existing tools.
 ## Installation
 Eventually I will package this properly. For now, clone and use within the repo directory.
 
-##usage
+## Usage
 siplib.py is the central library. The Sip class inherits from
-zipfile.ZipFile. On initilisation, this class creates an empty zipfile. Methods
+zipfile.ZipFile. On initilisation, this class creates an empty zipfile and a
+root node for XIP metadata. Methods
 then write content to the zipfile in a structure that Preservica can
 then interpret on ingest. The serialise() method finally writes xml metadata
 once the sip structure has been finalised.
+
+API documentation is in the API directory.
 
 This project is in very early stages and the API will likely change frequently.
