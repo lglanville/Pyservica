@@ -22,8 +22,8 @@ def S3upload(file, bucketpath, destination=None):
         "key": key,
         "name": fpath.name,
         "size": str(round(fpath.stat().st_size/1024))}}
-    if bucket is not None:
-        metadata["metadata"]["structuralobjectreference"] = destination
+    if destination is not None:
+        metadata["Metadata"]["structuralobjectreference"] = destination
     with fpath.open('rb') as data:
         bucket.upload_fileobj(
             data, key,  ExtraArgs=metadata, Config=config,
