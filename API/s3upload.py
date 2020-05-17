@@ -9,7 +9,7 @@ from boto3.s3.transfer import TransferConfig
 def S3upload(file, bucketpath, destination=None):
     """Function for S3 upload with minimum Preservica required metadata.
     Destination is not required for XIP based packages as the destination is
-    set within the XIP metadata
+    set within the XIP metadata (it doesn't work anyway).
     """
     fpath = pathlib.Path(file)
     s3 = boto3.resource('s3')
@@ -48,4 +48,7 @@ class ProgressPercentage(object):
 
 
 if __name__ == '__main__':
-    S3upload(sys.argv[1], sys.argv[2], sys.argv[3])
+    destination = None
+    if len(sys.argv) >= 4:
+        destination = sys.argv[3]
+    S3upload(sys.argv[1], sys.argv[2], destination=destination)
