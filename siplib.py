@@ -266,7 +266,7 @@ class Sip(zipfile.ZipFile):
         Links to a content object.
         """
         fpath = pathlib.Path(fpath)
-        if fpath.is_absolute():
+        if fpath.is_absolute() and arcname is None:
             raise ValueError('Bitstream paths must be relative:', fpath)
         logger.info(f'Writing {fpath} to package')
         if write:
