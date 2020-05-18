@@ -39,7 +39,7 @@ def get_rep(filename):
     """Takes a filepath and returns the appropriate label and type for the
     representation element"""
     name, ext = os.path.splitext(filename)
-    if ext in ('.wav', '.docx', '.oma', '.mxf'):
+    if ext in ('.wav', '.docx', '.oma', '.mxf', '.iso'):
         if 'original' in filename:
             label = 'Preservation original'
             type = 'Preservation'
@@ -52,7 +52,7 @@ def get_rep(filename):
         else:
             label = 'Preservation'
             type = 'Preservation'
-    elif ext in ('.pdf', '.mp3', 'mp4'):
+    elif ext in ('.pdf', '.mp3', '.mp4'):
         label = 'Access'
         type = 'Access'
     else:
