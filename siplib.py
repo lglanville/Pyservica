@@ -441,7 +441,7 @@ def _get_hashers(algorithms):
     return hashers
 
 
-def hash_file(fpath, algorithms, block_size=128):
+def hash_file(fpath, algorithms=['SHA256', 'SHA512']):
     """
     returns a dict of hashes for the Sip.add_bitstream method.
     Supported algs are MD5, SHA1, SHA256, SHA512.

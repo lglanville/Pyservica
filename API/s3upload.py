@@ -4,6 +4,8 @@ import sys
 import threading
 import boto3
 from boto3.s3.transfer import TransferConfig
+MB = 1024 ** 2
+GB = 1024 ** 3
 
 
 def S3upload(file, bucketpath, destination=None):
@@ -14,7 +16,6 @@ def S3upload(file, bucketpath, destination=None):
     fpath = pathlib.Path(file)
     s3 = boto3.resource('s3')
     bucket = s3.Bucket(bucketpath)
-    GB = 1024 ** 3
     config = TransferConfig(multipart_threshold=GB)
 
     key = str(uuid4())
@@ -25,7 +26,7 @@ def S3upload(file, bucketpath, destination=None):
     if destination is not None:
         metadata["Metadata"]["structuralobjectreference"] = destination
     with fpath.open('rb') as data:
-        bucket.upload_fileobj(
+        response = bucket.upload_fileobj(
             data, key,  ExtraArgs=metadata, Config=config,
             Callback=ProgressPercentage(fpath))
 
@@ -41,7 +42,7 @@ class ProgressPercentage(object):
         # To simplify, assume this is hooked up to a single filename
         with self._lock:
             self._seen_so_far += bytes_amount
-            percentage = (self._seen_so_far / self._size) * 100
+            percentage = round((self._seen_so_far / self._size) * 100, ndigits=2)
             sys.stdout.write(
                 f'\rUploading {self._filename}, {self._seen_so_far} / {self._size} ({percentage}%)')
             sys.stdout.flush()
