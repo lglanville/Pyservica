@@ -99,7 +99,7 @@ def dir_scan(dir, identifier, sip, base, security='open', write=True):
     os.chdir(dir)
     for root, _, files in os.walk(dir):
         for file in files:
-            fpath = pathlib.Path(root, file)
+            fpath = pathlib.Path(root, file).relative_to(pathlib.Path().cwd())
             id = id_transform(fpath.name)
             if id == identifier:
                 checksums = siplib.hash_file(fpath)
