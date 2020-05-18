@@ -258,7 +258,7 @@ class Sip(zipfile.ZipFile):
         self.add_xipelement(gen, 'Formats')
         self.add_xipelement(gen, 'Properties')
 
-    def add_bitstream(self, fpath, checksums, write=True):
+    def add_bitstream(self, fpath, checksums, write=True, arcname=None):
         """The physical content, as stored on a storage adapter. In almost all
         cases, a generation of a CO will have only one bitstream; exceptions
         would include multi-part container files, or data formats where the
@@ -270,6 +270,10 @@ class Sip(zipfile.ZipFile):
             raise ValueError('Bitstream paths must be relative:', fpath)
         logger.info(f'Writing {fpath} to package')
         if write:
+            if arcname is None:
+                arcname = self.content / fpath
+            else:
+                arcname = self.content / arcname
             self.write(fpath, self.content / fpath)
         bstream = self.add_xipelement(self.xip, 'Bitstream')
         path, name = os.path.split(fpath)

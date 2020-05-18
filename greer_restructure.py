@@ -85,7 +85,7 @@ def bag_scan(bagdir, identifier, sip, base, security='open', write=True):
     os.chdir(bagdir)
     bag = bagit.Bag(bagdir)
     for file, checksums in bag.payload_entries().items():
-        fpath = pathlib.Path(file)
+        fpath = pathlib.Path(file).absolute()
         id = id_transform(fpath.name)
         if id == identifier:
             checksums = {alg.upper(): val for alg, val in checksums.items()}
@@ -99,12 +99,11 @@ def dir_scan(dir, identifier, sip, base, security='open', write=True):
     os.chdir(dir)
     for root, _, files in os.walk(dir):
         for file in files:
-            fpath = pathlib.Path(root) / file
-            relpath = fpath.relative_to(fpath.cwd())
+            fpath = pathlib.Path(root, file).absolute()
             id = id_transform(fpath.name)
             if id == identifier:
-                checksums = siplib.hash_file(relpath)
-                add_asset(relpath, checksums, identifier, sip, base, security='open', write=True)
+                checksums = siplib.hash_file(fpath)
+                add_asset(fpath, checksums, identifier, sip, base, security='open', write=True)
 
 
 def add_asset(fpath, checksums, identifier, sip, base, security='open', write=True):
@@ -123,7 +122,7 @@ def add_asset(fpath, checksums, identifier, sip, base, security='open', write=Tr
             sip.add_generation(c_object, '', [fpath], orig='false', active='true')
         else:
             sip.add_generation(c_object, '', [fpath])
-        sip.add_bitstream(fpath, checksums, write=write)
+        sip.add_bitstream(fpath, checksums, arcname=fpath.name, write=write)
 
 
 
