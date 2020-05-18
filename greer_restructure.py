@@ -117,11 +117,11 @@ def add_asset(fpath, checksums, identifier, sip, base, security='open', write=Tr
         label, type = get_rep(fpath.as_posix())
         sip.add_representation(label, info_ref, [c_object], type=type)
         if label == 'Preservation original':
-            sip.add_generation(c_object, '', [fpath.name], orig='false', active='false')
+            sip.add_generation(c_object, '', [fpath], orig='false', active='false')
         elif label == 'Access':
-            sip.add_generation(c_object, '', [fpath.name], orig='false', active='true')
+            sip.add_generation(c_object, '', [fpath], orig='false', active='true')
         else:
-            sip.add_generation(c_object, '', [fpath.name])
+            sip.add_generation(c_object, '', [fpath])
         sip.add_bitstream(fpath, checksums, arcname=fpath.name, write=write)
 
 
