@@ -85,7 +85,7 @@ def bag_scan(bagdir, identifier, sip, base, security='open', write=True):
     os.chdir(bagdir)
     bag = bagit.Bag(bagdir)
     for file, checksums in bag.payload_entries().items():
-        fpath = pathlib.Path(file).absolute()
+        fpath = pathlib.Path(file)
         id = id_transform(fpath.name)
         if id == identifier:
             checksums = {alg.upper(): val for alg, val in checksums.items()}
@@ -99,7 +99,7 @@ def dir_scan(dir, identifier, sip, base, security='open', write=True):
     os.chdir(dir)
     for root, _, files in os.walk(dir):
         for file in files:
-            fpath = pathlib.Path(root, file).absolute()
+            fpath = pathlib.Path(root, file)
             id = id_transform(fpath.name)
             if id == identifier:
                 checksums = siplib.hash_file(fpath)
