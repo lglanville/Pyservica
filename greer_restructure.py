@@ -73,7 +73,7 @@ def get_iname(filename, ident):
             return ident
     elif filename.suffix in ('.pdf', '.docx'):
         return ident+' timecoded summary'
-    elif filename.suffix == 'xml':
+    elif filename.suffix == '.xml':
         return ident+' XML'
     else:
         return pathlib.Path(filename).stem
