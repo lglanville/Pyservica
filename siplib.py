@@ -271,9 +271,9 @@ class Sip(zipfile.ZipFile):
         logger.info(f'Writing {fpath} to package')
         if write:
             if arcname is None:
-                arcname = self.content / fpath
+                arcname = pathlib.Path(self.content, fpath)
             else:
-                arcname = self.content / arcname
+                arcname = pathlib.Path(self.content, arcname)
             self.write(fpath, self.content / fpath)
         bstream = self.add_xipelement(self.xip, 'Bitstream')
         path, name = os.path.split(fpath)
