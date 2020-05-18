@@ -64,7 +64,7 @@ def get_rep(filename):
 def get_iname(filename, ident):
     """Takes a filename and identifier and returns an appropriate name for the
     intellectual object"""
-    if filename.suffix in ('.wav', '.oma', '.mp3', '.mp4', '.mxf'):
+    if filename.suffix in ('.wav', '.oma', '.mp3', '.mp4', '.mxf', '.iso'):
         if filename.stem.upper().endswith('A'):
             return ident+' side A'
         elif filename.stem.upper().endswith('B'):
