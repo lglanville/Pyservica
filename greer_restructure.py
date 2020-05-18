@@ -123,8 +123,7 @@ def add_asset(fpath, checksums, identifier, sip, base, security='open', write=Tr
             sip.add_generation(c_object, '', [fpath], orig='false', active='true')
         else:
             sip.add_generation(c_object, '', [fpath])
-        norm_hash = {alg.upper(): val for alg, val in hash.items()}
-        sip.add_bitstream(fpath, norm_hash, write=write)
+        sip.add_bitstream(fpath, checksums, write=write)
 
 
 
