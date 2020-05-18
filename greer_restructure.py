@@ -144,7 +144,7 @@ def build_sip(metadata, dirs, outdir, parent, security='open', write=True):
     identifier = meta.find('mods:identifier[@type="UMA"]', namespaces=meta.nsmap).text
     sipfile = os.path.join(outdir, identifier+'.zip')
     sip = siplib.Sip(sipfile, parent)
-    base = sip.add_structobj(title, parent, security_tag=args.security)
+    base = sip.add_structobj(title, parent, security_tag=security)
     sip.add_identifier(base, identifier)
     sip.add_metadata(base, meta)
     for dir in dirs:
