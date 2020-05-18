@@ -122,15 +122,15 @@ def main(xmlfile, session):
         print('Finding refs for identifier', ident)
         objectrefs = session.get_refs(ident)
         root = build_root(record)
-        for type, refs in objectrefs.items():
-            for ref in refs:
-                meta = [meta for meta in session.get_metadata(ref, type) if meta.get('schema') == "http://www.loc.gov/mods/v3"]
-                session.update_xipmeta(ref, type, 'Title', title)
+        for type, uris in objectrefs.items():
+            for uri in uris:
+                meta = [meta for meta in session.get_metadata(uri) if meta.get('schema') == "http://www.loc.gov/mods/v3"]
+                session.update_xipmeta(uri, 'Title', title)
                 if iso_dates != []:
-                    session.update_extended_xip(ref, type, iso_dates[0], iso_dates[-1])
+                    session.update_extended_xip(uri, iso_dates[0], iso_dates[-1])
                 if meta == []:
                     session.post_metadata(
-                        ref, type,
+                        uri,
                         etree.tostring(root, pretty_print=True).decode())
                 else:
                     for m in meta:

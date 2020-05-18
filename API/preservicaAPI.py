@@ -18,7 +18,10 @@ ENT_MAP = {
     "information-objects": "InformationObject",
     "structural-objects": "StructuralObject",
     "content-objects": "ContentObject"}
-
+TYPE_MAP = {
+    "IO": "information-objects",
+    "SO": "structural-objects",
+    "CO": "content-objects"}
 
 def find_config():
     """find a config.json file, looking in a preservica folder
@@ -119,30 +122,31 @@ class preservica_session(requests.Session):
             logging.error(f"Unable to authenticate, received status code {response.status_code}")
 
     def refresh(self, interval=600):
-        """
-        Refreshes access token after a given interval and restarts
-        refresh timer.
-        """
-        time.sleep(interval)
-        url = self.authenturl+"/refresh"
-        logging.info("Refreshing authentication token")
-        response = self.post(url, params={"refreshToken": self.refresh_token})
-        data = response.json()
-        tokenval = (data["token"])
-        self.headers['Preservica-Access-Token'] = tokenval
-        self.refresh_token = data["refresh-token"]
-        self.refresh_timer = Thread(target=self.refresh, daemon=True)
-        self.refresh_timer.start()
+        """Refreshes access token every interval."""
+        while True:
+            time.sleep(interval)
+            url = self.authenturl+"/refresh"
+            logging.info("Refreshing authentication token")
+            response = self.post(url, params={"refreshToken": self.refresh_token})
+            data = response.json()
+            tokenval = (data["token"])
+            self.headers['Preservica-Access-Token'] = tokenval
+            self.refresh_token = data["refresh-token"]
+
+    def make_uri(self, ref, type):
+        url = self.entityurl+'/'+type+'/'+ref
+        return url
+
+    def get_type(self, uri):
+        uri = uri.replace(self.entityurl+'/', '')
+        type = uri.split('/')[0]
+        return type
 
     def get_refs(self, identifier, type='code'):
         """
-        Returns a dict of entity types with lists of references matching the
+        Returns a dict of entity types with lists of uris matching the
         provided identifier.
         """
-        typemap = {
-            "IO": "information-objects",
-            "SO": "structural-objects",
-            "CO": "content-objects"}
         parameters = {'type': type, 'value': identifier}
         r = self.get(
             self.entityurl+"/entities/by-identifier",
@@ -153,51 +157,88 @@ class preservica_session(requests.Session):
             "structural-objects": [], "information-objects": [],
             "content-objects": []}
         for ent in root.findall('.//Entity', namespaces=root.nsmap):
-            entitytype = typemap[ent.attrib['type']]
-            refs[entitytype].append(ent.attrib['ref'])
+            entitytype = TYPE_MAP[ent.attrib['type']]
+            refs[entitytype].append(ent.text)
         return refs
 
-    def get_object(self, ref, type):
-        url = "https://unimelb.preservica.com/api/entity/"+type+"/"+ref
-        r = self.get(url)
+    def get_object(self, uri):
+        """Returns an lxml element response for object of type with ref"""
+        r = self.get(uri)
         if r.status_code == 200:
             tree = etree.parse(BytesIO(r.content))
             root = tree.getroot()
             return root
+        else:
+            logger.error(
+                f'Request for entity at {uri} failed'
+                f'with status code {r.status_code}')
 
-    def get_metadata(self, ref, type):
-        object = self.get_object(ref, type)
+    def get_metadata(self, uri):
+        """Returns a list of dicts for metadata fragments associated with
+        object of type with ref.
+        """
+        object = self.get_object(uri)
         metadata = []
         for frag in object.findall('.//Metadata/Fragment', namespaces=object.nsmap):
             metadata.append({'schema': frag.get('schema'), 'uri': frag.text})
         return metadata
 
-    def post_metadata(self, ref, type, fragment):
-        url = self.entityurl+"/"+type+"/"+ref+"/metadata"
+    def get_children(self, uri):
+        """Returns a dict of entity types with lists of references matching the
+        provided identifier.
+        """
+        url = uri+'/children'
+        response =  self.get(url)
+        if response.status_code == 200:
+            refs = {
+                "structural-objects": [], "information-objects": [],
+                "content-objects": []}
+            root = etree.parse(BytesIO(response.content))
+            for ent in root.findall('.//Child', root.nsmap):
+                entitytype = TYPE_MAP[ent.attrib['type']]
+                refs[entitytype].append(ent.attrib['ref'])
+            return refs
+        else:
+            logger.error(
+                f'Request for children of {uri} failed with status '
+                f'{response.status_code}')
+
+    def post_metadata(self, uri, fragment):
+        """Appends a new metadata fragment to object of type with ref."""
+        url = uri+"/metadata"
         r = self.post(url, data=fragment)
         if r.status_code == 200:
-            logging.info(f'Successfully added metadata fragment to {ref}')
+            logging.info(f'Successfully added metadata fragment to {uri}')
         else:
-            logging.error(f'Problem adding metadata to {ref}')
+            logging.error(
+                f'Error adding metadata to {uri},'
+                f' status code {r.status_code}')
 
-    def replace_metadata(self, metaurl, fragment):
+    def replace_metadata(self, metauri, fragment):
+        """Replaces the metadata fragment at metaurl."""
         self.headers['Content-Type'] = 'application/xml'
-        r = self.put(metaurl, data=fragment)
+        r = self.put(metauri, data=fragment)
         if r.status_code == 200:
-            logging.info(f'Successfully replaced metadata fragment {metaurl}')
+            logging.info(f'Successfully replaced metadata fragment {metauri}')
         else:
-            logging.error(f'Error replacing metadata fragment {metaurl}, status code {r.status_code}')
+            logging.error(
+                f'Error replacing metadata fragment {metauri}, '
+                f'status code {r.status_code}')
 
-    def update_xipmeta(self, ref, type, tag, text):
-        entity = self.get_object(ref, type)
-        xip = entity.find('xip:'+ENT_MAP[type], namespaces=entity.nsmap)
+    def update_xipmeta(self, uri, tag, text):
+        """Updates the given XIP meta tag for object of type with ref."""
+        entity = self.get_object(uri)
+        Type = self.get_type(uri)
+        xip = entity.find('xip:'+ENT_MAP[Type], entity.nsmap)
         xip.find('xip:'+tag, namespaces=entity.nsmap).text = text
         data = etree.tostring(xip, pretty_print=True).decode()
         url = entity.findtext(
             'AdditionalInformation/Self', namespaces=entity.nsmap)
-        self.put(url, data=data)
+        self.put(uri, data=data)
 
-    def update_extended_xip(self, ref, type, earliest, latest, surrogate=True):
+    def update_extended_xip(self, uri, earliest, latest, surrogate=True):
+        """Updates or appends the extended XIP fragment for object of type with
+        ref"""
         nspace = "http://preservica.com/ExtendedXIP/v6.0"
         extended_xip = etree.Element('ExtendedXIP', nsmap={None: nspace})
         etree.SubElement(
@@ -207,22 +248,21 @@ class preservica_session(requests.Session):
         etree.SubElement(
             extended_xip, 'CoverageTo').text = latest
         extended_xip = etree.tostring(extended_xip, pretty_print=True).decode()
-        meta = self.get_metadata(ref, type)
+        meta = self.get_metadata(uri)
         xip_frags = [m for m in meta if m['schema'] == nspace]
         if xip_frags != []:
             meta_uri = xip_frags[0]['uri']  # we're assuming there's only one
             self.replace_metadata(meta_uri, extended_xip)
         else:
-            self.post_metadata(ref, type, extended_xip)
+            self.post_metadata(uri, extended_xip)
 
-    def upload(self, fpath, target):
+    def upload(self, fpath, targeturi):
         """Uploads package to the target folder. Note if a parent is specified
         in the package XIP it will override the provided target.
         """
         self.headers['Content-Type'] = "application/octet-stream"
         fpath = pathlib.Path(fpath)
-        url = self.entityurl
-        +'/structural-objects/'+target+"/upload-package?filename=" + fpath.name
+        url = targeturi+"/upload-package?filename=" + fpath.name
         start_time = time.time()
         logging.info(f"Upload of {fpath} commencing")
         try:
