@@ -12,7 +12,8 @@ MB = 1024 ** 2
 GB = 1024 ** 3
 logging.basicConfig(
     format=f'%(asctime)s %(levelname)s %(message)s', level=logging.INFO)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+formatter = logging.Formatter(
+    '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger('S3upload')
 logger.propagate = False
 ch = logging.StreamHandler()
@@ -27,14 +28,23 @@ class ProgressTracker(object):
         self._size = 0
         self._numfiles = 0
         self._seen_so_far = 0
-        self.complete = 0
+        self.completed = 0
         self.failed = 0
         self._lock = threading.Lock()
 
     def trackfile(self, fpath):
         fpath = pathlib.Path(fpath)
-        self._size += fpath.stat().st_size
-        self._numfiles += 1
+        with self._lock:
+            self._size += fpath.stat().st_size
+            self._numfiles += 1
+
+    def complete(self):
+        with self._lock:
+            self.completed += 1
+
+    def fail(self):
+        with self._lock:
+            self.failed += 1
 
     def displaymessage(self):
         if self._size < GB:
@@ -44,7 +54,11 @@ class ProgressTracker(object):
             dsize = f"{round(self._size / GB, ndigits=2)}gb"
             dseen = f"{round(self._seen_so_far / GB, ndigits=2)}gb"
         percentage = round((self._seen_so_far / self._size) * 100, ndigits=2)
-        return f'\rUploaded {self.complete} of {self._numfiles} package(s), {dseen} / {dsize} ({percentage}%)'
+        basemessage = f'\rUploaded {self.completed} of {self._numfiles} package(s)'
+        if self.failed > 0:
+            basemessage += f' ({self.failed} failed)'
+        message = basemessage + f', {dseen} / {dsize} ({percentage}%)    '
+        return message
 
     def __call__(self, bytes_amount):
         with self._lock:
@@ -57,6 +71,7 @@ TRACKER = ProgressTracker()
 
 
 def get_client(bucketpath):
+    """Get the thing that uploads files to bucketpath"""
     s3 = boto3.resource('s3')
     bucket = s3.Bucket(bucketpath)
     return bucket
@@ -88,10 +103,10 @@ def S3upload(file, bucketpath, delete_source=True, client=None):
                 data, key,  ExtraArgs=metadata, Config=CONFIG,
                 Callback=TRACKER)
             logger.info(f'Upload of {fpath} complete')
-            TRACKER.complete += 1
+            TRACKER.complete()
         except boto3.exceptions.S3UploadFailedError as e:
             logger.exception(e)
-            TRACKER.failed += 1
+            TRACKER.fail()
     if delete_source:
         try:
             fpath.unlink()
@@ -101,7 +116,7 @@ def S3upload(file, bucketpath, delete_source=True, client=None):
             logger.exception(e)
 
 
-def done_callback(future):
+def _done_callback(future):
     try:
         future.result()
     except Exception as e:
@@ -109,7 +124,8 @@ def done_callback(future):
 
 
 def bulks3upload(directory, bucketpath, delete_source=True):
-    futures = []
+    """Bulk upload method. Threads are capped at 5, beyond this AWS
+    has problems"""
     bucket = get_client(bucketpath)
     with ThreadPoolExecutor(5) as ex:
         for file in os.scandir(directory):
@@ -117,8 +133,17 @@ def bulks3upload(directory, bucketpath, delete_source=True):
                 f = ex.submit(
                     S3upload, *(file.path, bucketpath),
                     **{'client': bucket, 'delete_source': delete_source})
-                f.add_done_callback(done_callback)
-                futures.append(f)
+                f.add_done_callback(_done_callback)
+
+
+def configlogfile(logfile):
+    """Configures a rotating log file with INFO debug level."""
+    from logging.handlers import RotatingFileHandler
+    fh = RotatingFileHandler(
+        logfile, 'a', maxBytes=MB, backupCount=5)
+    fh.setLevel(logging.INFO)
+    fh.setFormatter(formatter)
+    logger.addHandler(fh)
 
 
 if __name__ == '__main__':
@@ -126,7 +151,7 @@ if __name__ == '__main__':
         description='Upload some SIPs to an S3 bucket with Preservica required'
         ' metadata')
     parser.add_argument(
-        'i', metavar='input package or directory', type=str,
+        'i', metavar='<input package or directory>', type=str,
         help='Path for package or base directory if using --bulk option')
     parser.add_argument(
         'bucket', type=str, help='Path to S3 bucket')
@@ -142,10 +167,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.logfile is not None:
-        fh = logging.FileHandler(args.logfile, 'a')
-        fh.setLevel(logging.INFO)
-        fh.setFormatter(formatter)
-        logger.addHandler(fh)
+        configlogfile(args.logfile)
 
     if args.bulk:
         bulks3upload(args.i, args.bucket, delete_source=args.deletesource)
