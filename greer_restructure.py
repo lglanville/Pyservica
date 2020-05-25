@@ -41,10 +41,10 @@ def get_rep(filename):
     name, ext = os.path.splitext(filename)
     if ext in ('.wav', '.docx', '.oma', '.mxf', '.iso'):
         if 'original' in filename:
-            label = 'Preservation original'
+            label = 'Preservation-2 original'
             type = 'Preservation'
         elif 'remastered' in filename:
-            label = 'Preservation remastered'
+            label = 'Preservation-1 remastered'
             type = 'Preservation'
         elif name.endswith('imx'):
             label = 'Mezzanine'

@@ -282,12 +282,12 @@ class preservica_session(requests.Session):
             print(e)
         self.headers['Content-Type'] = 'application/xml'
 
-    def s3upload(self, fpath, bucket, destination):
+    def s3upload(self, fpath, bucket):
         """Uploads package to S3 bucket with required metadata. Needs the
         AWS credentials configured abd boto3 installed. We might do this via
         Boto in the future"""
         from s3upload import S3upload
-        S3upload(fpath, bucket, destination=destination)
+        S3upload(fpath, bucket)
 
 
 if __name__ == '__main__':
