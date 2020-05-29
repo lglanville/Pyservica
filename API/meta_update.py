@@ -1,7 +1,12 @@
+"""Script for synchronising metadata between EMu and Preservica.
+From an EMu XML document generated from the 'xml for preservica' report,
+pings preservica for entities with a matching identifier, then crosswalks
+metadata into MODS and either posts a new fragment of replacing an existing
+one."""
+
+
 import sys
-import os
 from lxml import etree
-from io import BytesIO
 from datetime import date
 from preservicaAPI import get_session
 from datefuncs import get_iso
@@ -86,8 +91,12 @@ def build_root(record):
         root.append(name)
     phys = etree.SubElement(
         root, '{http://www.loc.gov/mods/v3}physicalDescription')
+    for elem in record.xpath('table[@name="EADExtent_tab"]/tuple/atom'):
+        add_field(phys, 'extent', elem)
     for elem in record.xpath('table[@name="EADGenreForm_tab"]/tuple/atom'):
         add_field(phys, 'form', elem)
+    for elem in record.xpath('table[@name="EADPhysicalDescription_tab"]/tuple/atom'):
+        add_field(phys, 'note', elem, displayLabel='Technical details')
     subjects = etree.SubElement(
         root, '{http://www.loc.gov/mods/v3}subject')
     for elem in record.xpath('table[@name="EADSubject_tab"]/tuple/atom'):
@@ -96,15 +105,21 @@ def build_root(record):
         add_field(subjects, 'name', elem)
     for elem in record.xpath('table[@name="EADGeographicName_tab"]/tuple/atom'):
         add_field(subjects, 'geographic', elem)
+    for elem in record.xpath('table[@name="EADPersonalName_tab"]/tuple/atom'):
+        add_field(subjects, 'name', elem)
+    for elem in record.xpath('table[@name="EADCorporateName_tab"]/tuple/atom'):
+        add_field(subjects, 'name', elem)
+    for elem in record.xpath('table[@name="EADTitle_tab"]/tuple/atom'):
+        add_field(subjects, 'titleInfo', elem)
     add_field(
         root, 'accessCondition',
-        record.find('atom[@name="EADAccessConditions"]'),
-        type="restriction on access",
+        record.find('atom[@name="EADAccessRestrictions"]'),
+        type="access",
         displayLabel="Conditions governing access")
     add_field(
         root, 'accessCondition',
-        record.find('atom[@name="EADAccessConditions"]'),
-        type="use and reproduction",
+        record.find('atom[@name="EADUseRestrictions"]'),
+        type="use",
         displayLabel="Conditions governing use")
     for host in record.xpath('.//tuple[@name="AssParentObjectRef"]'):
         if host.find('atom[@name="EADLevelAttribute"]').text is not None:
@@ -118,7 +133,7 @@ def main(xmlfile, session):
         ident = record.find('atom[@name="EADUnitID"]').text
         title = record.find('atom[@name="EADUnitTitle"]').text
         date = record.find('atom[@name="EADUnitDate"]').text
-        iso_dates = get_iso(date)
+        # iso_dates = get_iso(date)
         print('Finding refs for identifier', ident)
         objectrefs = session.get_refs(ident)
         root = build_root(record)
@@ -126,8 +141,8 @@ def main(xmlfile, session):
             for uri in uris:
                 meta = [meta for meta in session.get_metadata(uri) if meta.get('schema') == "http://www.loc.gov/mods/v3"]
                 session.update_xipmeta(uri, 'Title', title)
-                if iso_dates != []:
-                    session.update_extended_xip(uri, iso_dates[0], iso_dates[-1])
+                # if iso_dates != []:
+                    # session.update_extended_xip(uri, iso_dates[0], iso_dates[-1])
                 if meta == []:
                     session.post_metadata(
                         uri,
