@@ -29,7 +29,7 @@ def id_transform(filename):
         return('.'.join(r))
     else:
         match = re.search(
-            r'GreerG_(\d{1,3})?[AB].', filename)
+            r'GreerG_(\d{1,3})?[AB]?.', filename)
         if match is not None:
             i = match.groups()[0]
             return '2014.0040.'+'0'*(5-len(i))+i

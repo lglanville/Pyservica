@@ -135,23 +135,22 @@ def main(xmlfile, session):
         date = record.find('atom[@name="EADUnitDate"]').text
         # iso_dates = get_iso(date)
         print('Finding refs for identifier', ident)
-        objectrefs = session.get_refs(ident)
+        objects = session.get_objectsbyid(ident)
         root = build_root(record)
-        for type, uris in objectrefs.items():
-            for uri in uris:
-                meta = [meta for meta in session.get_metadata(uri) if meta.get('schema') == "http://www.loc.gov/mods/v3"]
-                session.update_xipmeta(uri, 'Title', title)
-                # if iso_dates != []:
-                    # session.update_extended_xip(uri, iso_dates[0], iso_dates[-1])
-                if meta == []:
-                    session.post_metadata(
-                        uri,
+        for object in objects:
+            meta = [meta for meta in object.metadata if meta.get('schema') == "http://www.loc.gov/mods/v3"]
+            session.update_xipmeta(object, 'Title', title)
+            # if iso_dates != []:
+                # session.update_extended_xip(uri, iso_dates[0], iso_dates[-1])
+            if meta == []:
+                session.post_metadata(
+                    object,
+                    etree.tostring(root, pretty_print=True).decode())
+            else:
+                for m in meta:
+                    session.replace_metadata(
+                        m['uri'],
                         etree.tostring(root, pretty_print=True).decode())
-                else:
-                    for m in meta:
-                        session.replace_metadata(
-                            m['uri'],
-                            etree.tostring(root, pretty_print=True).decode())
     sesh.close()
 
 if __name__ == '__main__':

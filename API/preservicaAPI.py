@@ -65,6 +65,37 @@ def get_session(profile='DEFAULT'):
     return sesh
 
 
+class entity(object):
+    """Class that parses out an xml response into useful attributes."""
+
+    def __init__(self, element):
+        self.xmlResponse = element
+        self.type = element[0].tag.split('}')[1]
+        self.XIP = element[0]
+        self.ref = element.findtext(
+            'xip:StructuralObject/xip:Ref', namespaces=element.nsmap)
+        self.title = element.findtext(
+            'xip:StructuralObject/xip:Title', namespaces=element.nsmap)
+        self.securityTag = element.findtext(
+            'xip:StructuralObject/xip:SecurityTag', namespaces=element.nsmap)
+        self.parentRef = element.findtext(
+            'xip:StructuralObject/xip:Parent', namespaces=element.nsmap)
+        self.uri = element.findtext(
+            'AdditionalInformation/Self', namespaces=element.nsmap)
+        self.parentUri = element.findtext(
+            'AdditionalInformation/Parent', namespaces=element.nsmap)
+        self.parentUri = element.findtext(
+            'AdditionalInformation/Self', namespaces=element.nsmap)
+        self.children = element.findtext(
+            'AdditionalInformation/Children', namespaces=element.nsmap)
+        self.metadata = []
+        for frag in element.findall('.//Metadata/Fragment', namespaces=element.nsmap):
+            self.metadata.append({'schema': frag.get('schema'), 'uri': frag.text})
+
+    def __repr__(self):
+        return f'<{self.title}: {self.ref}>'
+
+
 class preservica_session(requests.Session):
     """Class that handles authentication and wraps useful requests to the
     Preservica REST API. Best used as a context manager."""
@@ -142,9 +173,9 @@ class preservica_session(requests.Session):
         type = uri.split('/')[0]
         return type
 
-    def get_refs(self, identifier, type='code'):
+    def get_objectsbyid(self, identifier, type='code'):
         """
-        Returns a dict of entity types with lists of uris matching the
+        Returns a lost of entities matching the
         provided identifier.
         """
         parameters = {'type': type, 'value': identifier}
@@ -153,65 +184,51 @@ class preservica_session(requests.Session):
             params=parameters)
         tree = etree.parse(BytesIO(r.content))
         root = tree.getroot()
-        refs = {
-            "structural-objects": [], "information-objects": [],
-            "content-objects": []}
+        objects = []
         for ent in root.findall('.//Entity', namespaces=root.nsmap):
-            entitytype = TYPE_MAP[ent.attrib['type']]
-            refs[entitytype].append(ent.text)
-        return refs
+            object = self.get_object(ent.text)
+            objects.append(object)
+        return objects
 
     def get_object(self, uri):
         """Returns an lxml element response for object of type with ref"""
         r = self.get(uri)
         if r.status_code == 200:
             tree = etree.parse(BytesIO(r.content))
-            root = tree.getroot()
-            return root
+            object = entity(tree.getroot())
+            return object
         else:
             logger.error(
                 f'Request for entity at {uri} failed'
                 f'with status code {r.status_code}')
 
-    def get_metadata(self, uri):
-        """Returns a list of dicts for metadata fragments associated with
-        object of type with ref.
-        """
-        object = self.get_object(uri)
-        metadata = []
-        for frag in object.findall('.//Metadata/Fragment', namespaces=object.nsmap):
-            metadata.append({'schema': frag.get('schema'), 'uri': frag.text})
-        return metadata
-
-    def get_children(self, uri):
+    def get_children(self, object):
         """Returns a dict of entity types with lists of references matching the
         provided identifier.
         """
-        url = uri+'/children'
-        response =  self.get(url)
+        response =  self.get(object.children)
         if response.status_code == 200:
-            refs = {
-                "structural-objects": [], "information-objects": [],
-                "content-objects": []}
-            root = etree.parse(BytesIO(response.content))
+            children = []
+            tree = etree.parse(BytesIO(response.content))
+            root = tree.getroot()
             for ent in root.findall('.//Child', root.nsmap):
-                entitytype = TYPE_MAP[ent.attrib['type']]
-                refs[entitytype].append(ent.attrib['ref'])
-            return refs
+                object = self.get_object(ent.text)
+                children.append(object)
+            return children
         else:
             logger.error(
-                f'Request for children of {uri} failed with status '
+                f'Request for children of {object} failed with status '
                 f'{response.status_code}')
 
-    def post_metadata(self, uri, fragment):
+    def post_metadata(self, object, fragment):
         """Appends a new metadata fragment to object of type with ref."""
-        url = uri+"/metadata"
+        url = object.uri+"/metadata"
         r = self.post(url, data=fragment)
         if r.status_code == 200:
-            logging.info(f'Successfully added metadata fragment to {uri}')
+            logging.info(f'Successfully added metadata fragment to {object}')
         else:
             logging.error(
-                f'Error adding metadata to {uri},'
+                f'Error adding metadata to {object},'
                 f' status code {r.status_code}')
 
     def replace_metadata(self, metauri, fragment):
@@ -225,16 +242,11 @@ class preservica_session(requests.Session):
                 f'Error replacing metadata fragment {metauri}, '
                 f'status code {r.status_code}')
 
-    def update_xipmeta(self, uri, tag, text):
-        """Updates the given XIP meta tag for object of type with ref."""
-        entity = self.get_object(uri)
-        Type = self.get_type(uri)
-        xip = entity.find('xip:'+ENT_MAP[Type], entity.nsmap)
-        xip.find('xip:'+tag, namespaces=entity.nsmap).text = text
-        data = etree.tostring(xip, pretty_print=True).decode()
-        url = entity.findtext(
-            'AdditionalInformation/Self', namespaces=entity.nsmap)
-        self.put(uri, data=data)
+    def update_xipmeta(self, object, tag, text):
+        """Updates the given XIP meta tag for given object of type with ref."""
+        object.XIP.find('xip:'+tag, namespaces=object.XIP.nsmap).text = text
+        data = etree.tostring(object.XIP, pretty_print=True).decode()
+        self.put(object.uri, data=data)
 
     def update_extended_xip(self, uri, earliest, latest, surrogate=True):
         """Updates or appends the extended XIP fragment for object of type with

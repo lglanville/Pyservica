@@ -18,7 +18,7 @@ SUPPORTED_ALGS = ['MD5', 'SHA1', 'SHA256', 'SHA512']
 
 
 class Sip(zipfile.ZipFile):
-    def __init__(self, fpath, parent, name=None):
+    def __init__(self, fpath, parent=None, name=None):
         """Class representing a Preservica V6 Submission Information Package
         (SIP). Initialises a new, empty SIP at fpath, or if fpath exists,
         loads the SIP for modification or analysis.
@@ -27,13 +27,13 @@ class Sip(zipfile.ZipFile):
             logger.info(f'Opening existing SIP at {fpath}')
             super(Sip, self).__init__(fpath, 'a')
             for file in self.filelist:
-                if file.filename.endswith('.protocol'):
-                    prot = file.filename
-                    self.sipref = prot.split('.')[0]
-                if file.filename.endswith('metadata.xml'):
+                fpath = pathlib.Path(file.filename)
+                if fpath.name == 'metadata.xml':
+                    self.sipref = str(fpath.parent)
                     self.xip = etree.parse(
                         BytesIO(self.read(file.filename))).getroot()
             self.content = os.path.join(self.sipref, 'content')
+            self.parent = self.get_parent_ref()[0]
         else:
             logger.info(f'Creating new SIP at {fpath}')
             super(Sip, self).__init__(
@@ -118,7 +118,8 @@ class Sip(zipfile.ZipFile):
                     belements.append(elem)
             return belements
 
-    def get_repr(self, element):
+    @staticmethod
+    def _get_repr(element):
         ents = [
             "{http://preservica.com/XIP/v6.0}StructuralObject",
             "{http://preservica.com/XIP/v6.0}InformationObject",
@@ -139,6 +140,10 @@ class Sip(zipfile.ZipFile):
             name = element.findtext('Filename', namespaces=element.nsmap)
             return f"Bitstream {name}"
 
+    def list_structure(self):
+        for elem in self.xip:
+            print(self._get_repr(elem))
+
     def get_top(self):
         """Get the elements representing the top level object(s) in the SIP."""
         top = []
@@ -147,6 +152,17 @@ class Sip(zipfile.ZipFile):
             if elem.findtext('Parent', namespaces=self.xip.nsmap) not in refs:
                 top.append(elem)
         return top
+
+    def get_parent_ref(self):
+        """Get the references representing for the SIPs destination in
+        Preservica"""
+        parent_refs = []
+        refs = [elem.findtext('Ref', namespaces=self.xip.nsmap) for elem in self.xip]
+        for elem in self.xip:
+            parent = elem.findtext('Parent', namespaces=self.xip.nsmap)
+            if elem.findtext('Parent', namespaces=self.xip.nsmap) not in refs:
+                parent_refs.append(parent)
+        return parent_refs
 
     def get_object(self, ref):
         for elem in self.xip.findall('.//Ref', self.xip.nsmap):
@@ -162,6 +178,11 @@ class Sip(zipfile.ZipFile):
         elem = etree.SubElement(
             root, etree.QName("{http://preservica.com/XIP/v6.0}"+tag), **kwargs)
         return elem
+
+    def change_security(self, tag):
+        """Quick method for changing the security tag of all objects in SIP"""
+        for elem in self.xip.findall('.//SecurityTag', self.xip.nsmap):
+            elem.text = tag
 
     def add_structobj(self, title, parent_ref=None, security_tag='open'):
         """Structural objects make up the hierarchy within your archive. They
@@ -437,7 +458,7 @@ class Sip(zipfile.ZipFile):
         etree.SubElement(ex_xip, 'CoverageFrom').text = earliest
         etree.SubElement(ex_xip, 'CoverageTo').text = latest
 
-
+@staticmethod
 def _get_hashers(algorithms):
     hashers = {}
     for alg in algorithms:
