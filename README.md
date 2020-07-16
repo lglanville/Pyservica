@@ -18,8 +18,20 @@ zipfile.ZipFile. On initilisation, this class creates an empty zipfile and a
 root node for XIP metadata. Methods can then be used to build the SIP hierarchy,
 add identifiers and metadata and write content to the zipfile in a structure
 that Preservica can then interpret on ingest.
-The serialise() method finally writes xml metadata once the sip
-structure has been finalised.
+Note that you will have to build the various objects in hierarchical order in
+order to build the SIP structure. Add object methods return the created object's
+reference UUID, that can then be appended to subsequent objects. For example:
+
+```
+sip = Sip(sip_path, target)
+struct_ref = sip.add_structobj(foldername, target)
+asset_ref= sip.add_infobj(ident, struct_ref)
+sip.add_manifestation(asset_ref, filepath, 'Preservation')
+sip.serialise()
+```
+
+The serialise() method finally writes xml metadata and closes the zipfile
+once the sip structure has been finalised.
 
 API documentation is in the API directory.
 
