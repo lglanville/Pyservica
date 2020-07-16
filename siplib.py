@@ -328,7 +328,7 @@ class Sip(zipfile.ZipFile):
         self.add_representation('Preservation-1', i, [c])
         self.add_generation(c, '', [fpath])
         if checksum is None:
-            checksum = hash_file(fpath, ['SHA256', 'SHA512'])
+            checksum = self.hash_file(fpath, ['SHA256', 'SHA512'])
         self.add_bitstream(fpath, checksum)
 
     def add_manifestation(self, info_ref, filepaths, type, security_tag='open', algorithms=['SHA256', 'SHA512'], rep_name=None, gen_label=''):
@@ -341,7 +341,7 @@ class Sip(zipfile.ZipFile):
             CO_ref = self.add_contobj(file.name, info_ref, security_tag=security_tag)
             CO_refs.append(CO_ref)
             self.add_generation(CO_ref, gen_label, [file])
-            hash = hash_file(file, algorithms)
+            hash = self.hash_file(file, algorithms)
             self.add_bitstream(file, hash)
         if rep_name is None:  # add a name based on number of existing reps
             num_reps = 1
