@@ -157,7 +157,7 @@ if __name__ == '__main__':
         'bucket', type=str, help='Path to S3 bucket')
     parser.add_argument(
         '--bulk', '-b', action='store_true',
-        help='Upload all .zip packages in in directory')
+        help='Upload all .zip packages in directory')
     parser.add_argument(
         '--deletesource', '-d', action='store_true',
         help='Delete source packages on successful upload')

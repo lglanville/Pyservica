@@ -458,7 +458,7 @@ class Sip(zipfile.ZipFile):
         etree.SubElement(ex_xip, 'CoverageFrom').text = earliest
         etree.SubElement(ex_xip, 'CoverageTo').text = latest
 
-@staticmethod
+
 def _get_hashers(algorithms):
     hashers = {}
     for alg in algorithms:
