@@ -2,21 +2,24 @@
 
 Python library and command line scripts for building Preservica V6 Submission
 Information packages (SIPs). Preservica 6 has a flexible data model but
-few tools that can take advantage of it. Use cases such as ingesting
+few client side tools that take advantage of it. Use cases such as ingesting
 files with pre-existing checksums and appending multiple content objects to
-single representations require building XIP metadata outside of Preservica's
-existing tools.
+single representations requires building XIP metadata outside of Preservica's
+existing tools. This package aims to do that in a way that's flexible and
+scalable for anyone with basic Python scripting knowledge.
 
 ## Installation
-Eventually I will package this properly. For now, clone and use within the repo directory.
+Eventually I will package this properly. For now, clone and use within the repo
+directory.
 
 ## Usage
 siplib.py is the central library. The Sip class inherits from
 zipfile.ZipFile. On initilisation, this class creates an empty zipfile and a
-root node for XIP metadata. Methods
-then write content to the zipfile in a structure that Preservica can
-then interpret on ingest. The serialise() method finally writes xml metadata
-once the sip structure has been finalised.
+root node for XIP metadata. Methods can then be used to build the SIP hierarchy,
+add identifiers and metadata and write content to the zipfile in a structure
+that Preservica can then interpret on ingest.
+The serialise() method finally writes xml metadata once the sip
+structure has been finalised.
 
 API documentation is in the API directory.
 
