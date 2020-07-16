@@ -23,7 +23,7 @@ def build_asset(sip_path, indir, target, ident):
     c = sip.add_contobj(pdf_fname, asset)
     sip.add_representation('Access PDF', asset, [c], type='Access')
     sip.add_generation(c, '', [pdf_fname])
-    checksums = siplib.hash_file(pdf_fname, ['SHA256', 'SHA512'])
+    checksums = siplib.Sip.hash_file(pdf_fname, ['SHA256', 'SHA512'])
     sip.add_bitstream(pdf_fname, checksums)
     os.remove(pdf_fname)
     sip.serialise()

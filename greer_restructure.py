@@ -1,11 +1,11 @@
 import bagit
 import os
-import siplib
 import argparse
 import re
 import logging
 import pathlib
 from lxml import etree
+from siplib import Sip
 from API.s3upload import S3upload
 FORMAT = '%(asctime)-15s [%(levelname)s] %(message)s'
 logging.basicConfig(format=FORMAT)
@@ -102,7 +102,7 @@ def dir_scan(dir, identifier, sip, base, security='open', write=True):
             fpath = pathlib.Path(root, file).relative_to(pathlib.Path().cwd())
             id = id_transform(fpath.name)
             if id == identifier:
-                checksums = siplib.hash_file(fpath)
+                checksums = Sip.hash_file(fpath)
                 add_asset(fpath, checksums, identifier, sip, base, security='open', write=True)
 
 
@@ -125,7 +125,6 @@ def add_asset(fpath, checksums, identifier, sip, base, security='open', write=Tr
         sip.add_bitstream(fpath, checksums, arcname=fpath.name, write=write)
 
 
-
 def find_dupe(new_hash, sip):
     """checks if a file has already been written to the SIP"""
     for file, hashes in sip.get_checksums().items():
@@ -141,7 +140,7 @@ def build_sip(metadata, dirs, outdir, parent, security='open', write=True):
     title = meta.find('mods:titleInfo/mods:title', namespaces=meta.nsmap).text
     identifier = meta.find('mods:identifier[@type="UMA"]', namespaces=meta.nsmap).text
     sipfile = os.path.join(outdir, identifier+'.zip')
-    sip = siplib.Sip(sipfile, parent)
+    sip = Sip(sipfile, parent)
     base = sip.add_structobj(title, parent, security_tag=security)
     sip.add_identifier(base, identifier)
     sip.add_metadata(base, meta)

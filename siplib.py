@@ -458,30 +458,30 @@ class Sip(zipfile.ZipFile):
         etree.SubElement(ex_xip, 'CoverageFrom').text = earliest
         etree.SubElement(ex_xip, 'CoverageTo').text = latest
 
+    @staticmethod
+    def _get_hashers(algorithms):
+        hashers = {}
+        for alg in algorithms:
+            hashers[alg] = hashlib.new(alg)
+        return hashers
 
-def _get_hashers(algorithms):
-    hashers = {}
-    for alg in algorithms:
-        hashers[alg] = hashlib.new(alg)
-    return hashers
-
-
-def hash_file(fpath, algorithms=['SHA256', 'SHA512']):
-    """
-    returns a dict of hashes for the Sip.add_bitstream method.
-    Supported algs are MD5, SHA1, SHA256, SHA512.
-    To do: restrict to supported algorithms.
-    """
-    hashers = _get_hashers(algorithms)
-    logger.info(f'Calculating checksums for {fpath}')
-    with open(fpath, "rb") as f:
-        while True:
-            block = f.read(HASH_BLOCK_SIZE)
-            if not block:
-                break
-            for i in hashers.values():
-                i.update(block)
-    return({alg: hasher.hexdigest() for alg, hasher in hashers.items()})
+    @classmethod
+    def hash_file(cls, fpath, algorithms=['SHA256', 'SHA512']):
+        """
+        returns a dict of hashes for the Sip.add_bitstream method.
+        Supported algs are MD5, SHA1, SHA256, SHA512.
+        To do: restrict to supported algorithms.
+        """
+        hashers = cls._get_hashers(algorithms)
+        logger.info(f'Calculating checksums for {fpath}')
+        with open(fpath, "rb") as f:
+            while True:
+                block = f.read(HASH_BLOCK_SIZE)
+                if not block:
+                    break
+                for i in hashers.values():
+                    i.update(block)
+        return({alg: hasher.hexdigest() for alg, hasher in hashers.items()})
 
 
 def main(basedir, outdir, parent=None, security='open', identifier=None):
