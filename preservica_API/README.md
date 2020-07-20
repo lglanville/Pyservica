@@ -10,12 +10,12 @@ This reads credentials from a config.json file in your home directory at
 .preservica/config.json. The write_config function can create this file for you.
 On the command line:
 ```
-python preservicaAPI.py  --config [host] [tenant] [username] [password]
+python API.py  --config [host] [tenant] [username] [password]
 ```
 The preservicaAPI.py file also contains a simple option for package upload via
 the API. Note this method is only suitable for packages <= 10gb.
 ```
-python preservicaAPI.py  --upload [package file] [folder ref]
+python API.py  --upload [package file] [folder ref]
 ```
 The s3upload.py file is a simple script/function for uploading a package to
 a configured AWS S3 source bucket. Packages are uploaded with required S3 tags
