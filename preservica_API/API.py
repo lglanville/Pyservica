@@ -23,47 +23,6 @@ TYPE_MAP = {
     "SO": "structural-objects",
     "CO": "content-objects"}
 
-def find_config():
-    """find a config.json file, looking in a preservica folder
-    in your home directory, then the location of the calling script."""
-    configpath = pathlib.Path().home() / '.preservica/config.json'
-    if not configpath.exists():
-        configpath = pathlib.Path(sys.argv[0]).parent / 'config.ini'
-        if not configpath.exists():
-            print("No config file found")
-            exit()
-    with configpath.open() as f:
-        config = json.load(f)
-    return config
-
-
-def write_config(host, tenant, login, password, profile='DEFAULT'):
-    """Write or amend a config.json file with the credentials provided"""
-    configpath = pathlib.Path().home() / '.preservica/config.json'
-    if configpath.exists():
-        with configpath.open() as f:
-            config = json.load(f)
-    else:
-        if not configpath.parent.exists():
-            configpath.parent.mkdir()
-        config = {}
-    config[profile] = {
-        'Host': host, 'Tenant': tenant,
-        'Username': login, 'Password': password}
-    with configpath.open('w') as f:
-        json.dump(config, f, indent=1)
-
-
-def get_session(profile='DEFAULT'):
-    """Create a preservica session using a config file."""
-    config = find_config()
-    host = config[profile]['Host']
-    username = config[profile]['Username']
-    password = config[profile]['Password']
-    tenant = config[profile]['Tenant']
-    sesh = preservica_session(username, password, host, tenant)
-    return sesh
-
 
 class entity(object):
     """Class that parses out an xml response into useful attributes."""
@@ -163,6 +122,48 @@ class preservica_session(requests.Session):
             tokenval = (data["token"])
             self.headers['Preservica-Access-Token'] = tokenval
             self.refresh_token = data["refresh-token"]
+
+    @staticmethod
+    def find_config():
+        """find a config.json file, looking in a preservica folder
+        in your home directory, then the location of the calling script."""
+        configpath = pathlib.Path().home() / '.preservica/config.json'
+        if not configpath.exists():
+            configpath = pathlib.Path(sys.argv[0]).parent / 'config.ini'
+            if not configpath.exists():
+                print("No config file found")
+                exit()
+        with configpath.open() as f:
+            config = json.load(f)
+        return config
+
+    @staticmethod
+    def write_config(host, tenant, login, password, profile='DEFAULT'):
+        """Write or amend a config.json file with the credentials provided"""
+        configpath = pathlib.Path().home() / '.preservica/config.json'
+        if configpath.exists():
+            with configpath.open() as f:
+                config = json.load(f)
+        else:
+            if not configpath.parent.exists():
+                configpath.parent.mkdir()
+            config = {}
+        config[profile] = {
+            'Host': host, 'Tenant': tenant,
+            'Username': login, 'Password': password}
+        with configpath.open('w') as f:
+            json.dump(config, f, indent=1)
+
+    @classmethod
+    def get_session(cls, profile='DEFAULT'):
+        """Create a preservica session using a config file."""
+        config = cls.find_config()
+        host = config[profile]['Host']
+        username = config[profile]['Username']
+        password = config[profile]['Password']
+        tenant = config[profile]['Tenant']
+        sesh = cls(username, password, host, tenant)
+        return sesh
 
     def make_uri(self, ref, type):
         url = self.entityurl+'/'+type+'/'+ref
@@ -317,7 +318,7 @@ if __name__ == '__main__':
         help='uploads a package to parent ref via the API')
     args = parser.parse_args()
     if args.config is not None:
-        write_config(*args.config, profile=args.profile)
-    sesh = get_session(profile=args.profile)
+        preservica_session.write_config(*args.config, profile=args.profile)
+    sesh = preservica_session.get_session(profile=args.profile)
     if args.upload is not None:
         sesh.upload(*args.upload)

@@ -5,7 +5,7 @@ import re
 import logging
 import pathlib
 from lxml import etree
-from siplib import Sip
+from pyservica import Sip
 from API.s3upload import S3upload
 FORMAT = '%(asctime)-15s [%(levelname)s] %(message)s'
 logging.basicConfig(format=FORMAT)

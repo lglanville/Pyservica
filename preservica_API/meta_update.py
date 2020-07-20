@@ -8,7 +8,7 @@ one."""
 import sys
 from lxml import etree
 from datetime import date
-from preservicaAPI import get_session
+from API import preservica_session
 from datefuncs import get_iso
 
 nsmap = {

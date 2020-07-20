@@ -1,4 +1,4 @@
-import siplib
+from pyservica import Sip
 import bagit
 import os
 import sys
