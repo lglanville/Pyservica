@@ -6,7 +6,7 @@ import logging
 import pathlib
 from lxml import etree
 from pyservica import Sip
-from API.s3upload import S3upload
+from preservica_API.s3upload import S3upload
 FORMAT = '%(asctime)-15s [%(levelname)s] %(message)s'
 logging.basicConfig(format=FORMAT)
 logger = logging.getLogger()
@@ -134,7 +134,7 @@ def find_dupe(new_hash, sip):
                     return True
 
 
-def build_sip(metadata, dirs, outdir, parent, security='open', write=True):
+def build_sip(metadata, dirs, outdir, parent, security='UMA_restricted', write=True):
     """Main fuction that builds the SIP with the provided metadata"""
     meta = etree.parse(metadata).getroot()
     title = meta.find('mods:titleInfo/mods:title', namespaces=meta.nsmap).text

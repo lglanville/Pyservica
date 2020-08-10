@@ -4,9 +4,9 @@ import sys
 import os
 import threading
 import argparse
-import boto3
-import logging
 from concurrent.futures import ThreadPoolExecutor
+import logging
+import boto3
 from boto3.s3.transfer import TransferConfig
 MB = 1024 ** 2
 GB = 1024 ** 3
