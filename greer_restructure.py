@@ -74,7 +74,12 @@ def get_iname(filename, ident):
     elif filename.suffix in ('.pdf', '.docx'):
         return ident+' timecoded summary'
     elif filename.suffix == '.xml':
-        return ident+' XML'
+        if filename.stem.upper().endswith('A'):
+            return ident+' side A XML'
+        elif filename.stem.upper().endswith('B'):
+            return ident+' side B XML'
+        else:
+            return ident+' XML'
     else:
         return pathlib.Path(filename).stem
 
@@ -89,7 +94,7 @@ def bag_scan(bagdir, identifier, sip, base, security='open', write=True):
         id = id_transform(fpath.name)
         if id == identifier:
             checksums = {alg.upper(): val for alg, val in checksums.items()}
-            add_asset(fpath, checksums, identifier, sip, base, security='open', write=True)
+            add_asset(fpath, checksums, identifier, sip, base, security=security, write=True)
 
 
 def dir_scan(dir, identifier, sip, base, security='open', write=True):
@@ -103,7 +108,7 @@ def dir_scan(dir, identifier, sip, base, security='open', write=True):
             id = id_transform(fpath.name)
             if id == identifier:
                 checksums = Sip.hash_file(fpath)
-                add_asset(fpath, checksums, identifier, sip, base, security='open', write=True)
+                add_asset(fpath, checksums, identifier, sip, base, security=security, write=True)
 
 
 def add_asset(fpath, checksums, identifier, sip, base, security='open', write=True):
@@ -116,7 +121,7 @@ def add_asset(fpath, checksums, identifier, sip, base, security='open', write=Tr
         c_object = sip.add_contobj(fpath.name, info_ref, security_tag=security)
         label, type = get_rep(fpath.as_posix())
         sip.add_representation(label, info_ref, [c_object], type=type)
-        if label == 'Preservation original':
+        if label == 'Preservation-2 original':
             sip.add_generation(c_object, '', [fpath], orig='false', active='false')
         elif label == 'Access':
             sip.add_generation(c_object, '', [fpath], orig='false', active='true')
