@@ -202,6 +202,7 @@ class Sip(zipfile.ZipFile):
             self.add_xipelement(sobj, 'Parent').text = parent_ref
         if description is not None:
             self.add_xipelement(sobj, 'Description').text = description
+
         return ref
 
     def add_infobj(self, title, folder_ref, security_tag='open', description=None):
@@ -299,7 +300,7 @@ class Sip(zipfile.ZipFile):
             if arcname.is_absolute():
                 raise ValueError('Bitstream paths must be relative:', arcname)
             logger.info(f'Writing {fpath} to package')
-            self.write(fpath, self.content / fpath)
+            self.write(fpath, arcname=arcname)
         bstream = self.add_xipelement(self.xip, 'Bitstream')
         path, name = os.path.split(fpath)
         posix_path = fpath.parent.as_posix()
