@@ -184,7 +184,7 @@ class Sip(zipfile.ZipFile):
         for elem in self.xip.findall('.//SecurityTag', self.xip.nsmap):
             elem.text = tag
 
-    def add_structobj(self, title, parent_ref=None, security_tag='open'):
+    def add_structobj(self, title, parent_ref=None, security_tag='open', description=None):
         """Structural objects make up the hierarchy within your archive. They
         can contain other structural objects, building up a tree structure, and
         also information objects. Parent is the uuid of the destination folder
@@ -200,9 +200,11 @@ class Sip(zipfile.ZipFile):
             sobj, 'SecurityTag').text = security_tag
         if parent_ref is not None:
             self.add_xipelement(sobj, 'Parent').text = parent_ref
+        if description is not None:
+            self.add_xipelement(sobj, 'Description').text = description
         return ref
 
-    def add_infobj(self, title, folder_ref, security_tag='open'):
+    def add_infobj(self, title, folder_ref, security_tag='open', description=None):
         """A logically atomic piece of information, for example a picture or an
         email. Assets are the entities which you will generally interact with,
         for example by rendering or downloading them. An asset can’t contain
@@ -218,6 +220,8 @@ class Sip(zipfile.ZipFile):
         self.add_xipelement(sobj, 'Title').text = title
         self.add_xipelement(sobj, 'SecurityTag').text = security_tag
         self.add_xipelement(sobj, 'Parent').text = folder_ref
+        if description is not None:
+            self.add_xipelement(sobj, 'Description').text = description
         return ref
 
     def add_representation(self, name, info_ref, c_objects, type='Preservation'):
