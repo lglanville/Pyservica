@@ -302,11 +302,10 @@ class Sip(zipfile.ZipFile):
             logger.info(f'Writing {fpath} to package')
             self.write(fpath, arcname=arcname)
         bstream = self.add_xipelement(self.xip, 'Bitstream')
-        path, name = os.path.split(fpath)
-        posix_path = fpath.parent.as_posix()
+        posix_path = arcname.parent.as_posix()
         if posix_path == '.':
             posix_path = ''
-        self.add_xipelement(bstream, 'Filename').text = name
+        self.add_xipelement(bstream, 'Filename').text = arcname.name
         self.add_xipelement(
             bstream, 'FileSize').text = str(fpath.stat().st_size)
         self.add_xipelement(
