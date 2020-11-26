@@ -54,7 +54,8 @@ class Sip(zipfile.ZipFile):
         for e in self.xip.findall('StructuralObject', namespaces=self.xip.nsmap):
             title = e.findtext('Title', namespaces=self.xip.nsmap)
             ref = e.findtext('Ref', namespaces=self.xip.nsmap)
-            structs[title] = ref
+            descr = e.findtext('Description', namespaces=self.xip.nsmap)
+            structs[ref] = (title, descr)
         return structs
 
     def get_infobjs(self):
@@ -62,7 +63,8 @@ class Sip(zipfile.ZipFile):
         for e in self.xip.findall('InformationObject', namespaces=self.xip.nsmap):
             title = e.findtext('Title', namespaces=self.xip.nsmap)
             ref = e.findtext('Ref', namespaces=self.xip.nsmap)
-            infobjs[ref] = title
+            descr = e.findtext('Description', namespaces=self.xip.nsmap)
+            infobjs[ref] = (title, descr)
         return infobjs
 
     def get_checksums(self):
