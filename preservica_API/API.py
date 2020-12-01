@@ -275,7 +275,7 @@ class preservica_session(requests.Session):
         """
         self.headers['Content-Type'] = "application/octet-stream"
         fpath = pathlib.Path(fpath)
-        url = targeturi+"/upload-package?filename=" + fpath.name
+        url = self.make_uri(targeturi, 'structural-objects')+"/upload-package?filename=" + fpath.name
         start_time = time.time()
         logging.info(f"Upload of {fpath} commencing")
         try:
@@ -308,7 +308,7 @@ if __name__ == '__main__':
         description='Simple tasks using the Preservica API')
     parser.add_argument(
         '--profile', default='DEFAULT',
-        help='saves or amends a credentials file')
+        help='loads session from config file with specified profile')
     parser.add_argument(
         '--config', nargs=4,
         metavar=('host', 'tenant', 'username', 'password'),
