@@ -294,11 +294,11 @@ class Sip(zipfile.ZipFile):
         Links to a content object.
         """
         fpath = pathlib.Path(fpath)
-        arcname = pathlib.Path(arcname)
         if arcname is None:
             posix_path = fpath.parent.as_posix()
             arcname = pathlib.Path(self.content, fpath)
         else:
+            arcname = pathlib.Path(arcname)
             posix_path = arcname.parent.as_posix()
             arcname = pathlib.Path(self.content, arcname)
             if arcname.is_absolute():

@@ -1,8 +1,8 @@
-import siplib
 import argparse
 import os
 import pathlib
 from PIL import Image
+from pyservica import Sip
 Image.MAX_IMAGE_PIXELS = None
 
 
@@ -10,7 +10,7 @@ def build_asset(sip_path, indir, target, ident):
     """Builds a SIP with a single asset linked to multiple TIF content objects
     and a compiled PDF representation.
     """
-    sip = siplib.Sip(sip_path, target)
+    sip = Sip(sip_path, target)
     images = []
     os.chdir(indir)
     asset = sip.add_infobj(ident, target)
@@ -23,7 +23,7 @@ def build_asset(sip_path, indir, target, ident):
     c = sip.add_contobj(pdf_fname, asset)
     sip.add_representation('Access PDF', asset, [c], type='Access')
     sip.add_generation(c, '', [pdf_fname])
-    checksums = siplib.Sip.hash_file(pdf_fname, ['SHA256', 'SHA512'])
+    checksums = Sip.hash_file(pdf_fname, ['SHA256', 'SHA512'])
     sip.add_bitstream(pdf_fname, checksums)
     os.remove(pdf_fname)
     sip.serialise()

@@ -9,7 +9,6 @@ import sys
 from lxml import etree
 from datetime import date
 from API import preservica_session
-from datefuncs import get_iso
 
 nsmap = {
     'mods': 'http://www.loc.gov/mods/v3',
@@ -143,16 +142,18 @@ def main(xmlfile, session):
             # if iso_dates != []:
                 # session.update_extended_xip(uri, iso_dates[0], iso_dates[-1])
             if meta == []:
+                print('Adding new metadata fragment to', ident)
                 session.post_metadata(
                     object,
                     etree.tostring(root, pretty_print=True).decode())
             else:
                 for m in meta:
+                    print('Replacing metadata fragment at', ident)
                     session.replace_metadata(
                         m['uri'],
                         etree.tostring(root, pretty_print=True).decode())
-    sesh.close()
+    session.close()
 
 if __name__ == '__main__':
-    sesh = get_session()
+    sesh = preservica_session.get_session()
     main(sys.argv[1], sesh)

@@ -32,13 +32,13 @@ class entity(object):
         self.type = element[0].tag.split('}')[1]
         self.XIP = element[0]
         self.ref = element.findtext(
-            'xip:StructuralObject/xip:Ref', namespaces=element.nsmap)
+            f'xip:{self.type}/xip:Ref', namespaces=element.nsmap)
         self.title = element.findtext(
-            'xip:StructuralObject/xip:Title', namespaces=element.nsmap)
+            f'xip:{self.type}/xip:Title', namespaces=element.nsmap)
         self.securityTag = element.findtext(
-            'xip:StructuralObject/xip:SecurityTag', namespaces=element.nsmap)
+            f'xip:{self.type}/xip:SecurityTag', namespaces=element.nsmap)
         self.parentRef = element.findtext(
-            'xip:StructuralObject/xip:Parent', namespaces=element.nsmap)
+            f'xip:{self.type}/xip:Parent', namespaces=element.nsmap)
         self.uri = element.findtext(
             'AdditionalInformation/Self', namespaces=element.nsmap)
         self.parentUri = element.findtext(
@@ -61,12 +61,11 @@ class preservica_session(requests.Session):
 
     def __init__(self, login, password, host, tenant):
         super(preservica_session, self).__init__()
-        logging.info("Staring session")
+        logging.info("Starting session")
         self.host = host
         self.tenant = tenant
         self.headers = {
                     'Accept': "*/*",
-                    'Content-Type': 'application/xml',
                     'Cache-Control': "no-cache",
                     'Host': self.host,
                     'Accept-Encoding': "gzip, deflate",
@@ -100,7 +99,7 @@ class preservica_session(requests.Session):
         querystring = {
             "username": login, "password": password, "tenant": self.tenant}
         logging.info("Authenticating with Preservica")
-        response = self.post(url, params=querystring)
+        response = self.post(url, data=querystring)
         if response.status_code == 200:
             data = response.json()
             tokenval = (data["token"])
@@ -110,6 +109,7 @@ class preservica_session(requests.Session):
             self.refresh_timer.start()
         else:
             logging.error(f"Unable to authenticate, received status code {response.status_code}")
+            print(response.text)
 
     def refresh(self, interval=600):
         """Refreshes access token every interval."""
@@ -117,7 +117,7 @@ class preservica_session(requests.Session):
             time.sleep(interval)
             url = self.authenturl+"/refresh"
             logging.info("Refreshing authentication token")
-            response = self.post(url, params={"refreshToken": self.refresh_token})
+            response = self.post(url, data={"refreshToken": self.refresh_token})
             data = response.json()
             tokenval = (data["token"])
             self.headers['Preservica-Access-Token'] = tokenval
@@ -176,7 +176,7 @@ class preservica_session(requests.Session):
 
     def get_objectsbyid(self, identifier, type='code'):
         """
-        Returns a lost of entities matching the
+        Returns a list of entities matching the
         provided identifier.
         """
         parameters = {'type': type, 'value': identifier}
@@ -204,22 +204,22 @@ class preservica_session(requests.Session):
                 f'with status code {r.status_code}')
 
     def get_children(self, object):
-        """Returns a dict of entity types with lists of references matching the
-        provided identifier.
+        """Returns a list of objects.
         """
-        response =  self.get(object.children)
-        if response.status_code == 200:
-            children = []
-            tree = etree.parse(BytesIO(response.content))
-            root = tree.getroot()
-            for ent in root.findall('.//Child', root.nsmap):
-                object = self.get_object(ent.text)
-                children.append(object)
-            return children
-        else:
-            logger.error(
-                f'Request for children of {object} failed with status '
-                f'{response.status_code}')
+        if object.children is not None:
+            response =  self.get(object.children)
+            if response.status_code == 200:
+                children = []
+                tree = etree.parse(BytesIO(response.content))
+                root = tree.getroot()
+                for ent in root.findall('.//Child', root.nsmap):
+                    object = self.get_object(ent.text)
+                    children.append(object)
+                return children
+            else:
+                logger.error(
+                    f'Request for children of {object} failed with status '
+                    f'{response.status_code}')
 
     def post_metadata(self, object, fragment):
         """Appends a new metadata fragment to object of type with ref."""
