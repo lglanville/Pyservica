@@ -1,33 +1,35 @@
 from pyservica import Sip
 import bagit
-import os
+from pathlib import Path
 import sys
-import pathlib
+import os
 
 
-def main(bagdir, outdir, parent_ref):
+def main(bagdir, outdir, parent_ref, security_tag='UMA_restricted'):
     """traverses a bagit package with an object directory, converting it to a
     V6 SIP using existing checksums
     """
     bag = bagit.Bag(bagdir)
-    os.chdir(bag.path)
-    bag_path = pathlib.Path(bagdir)
-    sip_path = pathlib.Path(outdir, bag_path.name+'.zip')
-    sip = siplib.Sip(sip_path, parent_ref)
-    for root, dirs, files in os.walk('data/objects'):
-        if root == 'data/objects':
+    bag_path = Path(bagdir)
+    sip_path = Path(outdir, bag_path.name+'.zip')
+    objects = bag_path / 'data/objects'
+    sip = Sip(sip_path, parent_ref)
+    for root, dirs, files in os.walk(objects):
+        root = Path(root)
+        if root == objects:
             parent_ref = sip.add_structobj(
-                bag.info['identifier'], parent_ref=parent_ref)
+                bag.info['identifier'], parent_ref=parent_ref, security_tag=security_tag)
             sip.add_identifier(parent_ref, bag.info['identifier'])
         else:
             parent_ref = sip.add_structobj(
-                os.path.split(root)[1], parent_ref=parent_ref)
+                root.name, parent_ref=parent_ref, security_tag=security_tag)
         for file in files:
-            fpath = pathlib.Path(root) / file
-            hash = [hash for file, hash in bag.payload_entries().items() if pathlib.Path(file) == fpath]
+            fpath = Path(root) / file
+            relpath = fpath.relative_to(bag_path)
+            hash = [hash for file, hash in bag.payload_entries().items() if Path(file) == fpath]
             if len(hash) == 1:
                 norm_hash = {alg.upper(): val for alg, val in hash[0].items()}
-                sip.add_asset_tree(parent_ref, fpath, checksum=norm_hash)
+                sip.add_asset_tree(parent_ref, fpath, arcname=rel_path, checksum=norm_hash, security_tag=security_tag)
             else:
                 raise ValueError('Too many hashes')
     sip.serialise()
