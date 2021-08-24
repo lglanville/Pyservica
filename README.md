@@ -13,8 +13,9 @@ Eventually I will package this properly. For now, clone and use within the repo
 directory.
 
 ## Usage
-pyservica.py is the central library. The Sip class inherits from
-zipfile.ZipFile. On initilisation, this class creates an empty zipfile and a
+xip_builder is the central library and consists of a single class for building XIP
+based packages for Preservica. The Sip class inherits from
+zipfile.ZipFile. On initialisation, this class creates an empty zipfile and a
 root node for XIP metadata. Methods can then be used to build the SIP hierarchy,
 add identifiers and metadata and write content to the zipfile in a structure
 that Preservica can then interpret on ingest.
@@ -23,11 +24,12 @@ order to build the SIP structure. Add object methods return the created object's
 reference UUID, that can then be appended to subsequent objects. For example:
 
 ```
-from pyservica import Sip
+from pyservica.xip_builder import Sip
 sip = Sip(sip_path, target)
 struct_ref = sip.add_structobj(foldername, target)
 asset_ref= sip.add_infobj(ident, struct_ref)
 sip.add_manifestation(asset_ref, filepath, 'Preservation')
+sip.add_manifestation(asset_ref, filepath, 'Access')
 sip.serialise()
 ```
 
